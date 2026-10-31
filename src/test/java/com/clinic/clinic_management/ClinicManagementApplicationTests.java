@@ -31,9 +31,10 @@ class ClinicManagementApplicationTests {
 	@Test
 	void testWebControllerRoutes() {
 		WebController controller = new WebController();
-		assertEquals("index", controller.index());
-		assertEquals("gioi-thieu", controller.about());
-		assertEquals("lien-he", controller.contact());
-		assertEquals("dich-vu", controller.services());
+		assertEquals("forward:/index.html", controller.forwardToSpa());
+		assertEquals("forward:/index.html", controller.index());
+		assertEquals("forward:/index.html", controller.about());
+		assertEquals("forward:/index.html", controller.contact());
+		assertEquals("forward:/index.html", controller.services());
 	}
 }

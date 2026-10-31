@@ -6,23 +6,39 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class WebController {
 
-    @GetMapping({"/", "/index", "/index.html", "/trang-chu"})
+    @GetMapping({
+        "/gioi-thieu",
+        "/gioi-thieu.html",
+        "/about",
+        "/about.html",
+        "/lien-he",
+        "/lien-he.html",
+        "/contact",
+        "/contact.html",
+        "/dich-vu",
+        "/dich-vu.html",
+        "/services",
+        "/services.html",
+        "/trang-chu",
+        "/index"
+    })
+    public String forwardToSpa() {
+        return "forward:/index.html";
+    }
+
     public String index() {
-        return "index";
+        return "forward:/index.html";
     }
 
-    @GetMapping({"/gioi-thieu", "/gioi-thieu.html", "/about", "/about.html"})
     public String about() {
-        return "gioi-thieu";
+        return forwardToSpa();
     }
 
-    @GetMapping({"/lien-he", "/lien-he.html", "/contact", "/contact.html"})
     public String contact() {
-        return "lien-he";
+        return forwardToSpa();
     }
 
-    @GetMapping({"/dich-vu", "/dich-vu.html", "/services", "/services.html"})
     public String services() {
-        return "dich-vu";
+        return forwardToSpa();
     }
 }

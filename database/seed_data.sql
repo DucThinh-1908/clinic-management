@@ -39,6 +39,35 @@ INSERT INTO user_roles (user_id, role_id) VALUES
 (8, 7), -- cashier
 (9, 1); -- patient
 
+-- 2.1 PHÂN QUYỀN VÀ GÁN QUYỀN (PERMISSIONS & ROLE_PERMISSIONS)
+INSERT INTO permissions (id, code, name, module) VALUES
+(1, 'USER_VIEW', 'Xem danh sách tài khoản', 'ACCOUNT'),
+(2, 'USER_CREATE', 'Tạo tài khoản mới', 'ACCOUNT'),
+(3, 'USER_LOCK', 'Khóa và mở khóa tài khoản', 'ACCOUNT'),
+(4, 'ROLE_ASSIGN', 'Phân quyền và gán vai trò', 'AUTHORIZATION'),
+(5, 'ROLE_MANAGE', 'Quản lý danh mục vai trò', 'AUTHORIZATION'),
+(6, 'RECORD_ACCESS_VIEW', 'Xem nhật ký truy cập hồ sơ bệnh án', 'AUDIT_LOG'),
+(7, 'MEDICAL_RECORD_VIEW', 'Xem hồ sơ bệnh án bệnh nhân', 'CLINICAL'),
+(8, 'MEDICAL_RECORD_WRITE', 'Lập và chỉnh sửa hồ sơ bệnh án', 'CLINICAL'),
+(9, 'PRESCRIPTION_CREATE', 'Kê đơn thuốc điều trị', 'CLINICAL'),
+(10, 'DISPENSATION_MANAGE', 'Cấp phát thuốc và duyệt đơn', 'PHARMACY'),
+(11, 'INVOICE_CREATE', 'Lập hóa đơn và thu tiền viện phí', 'CASHIER'),
+(12, 'APPOINTMENT_MANAGE', 'Tiếp đón và đặt lịch khám', 'RECEPTION');
+
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+(9, 1), (9, 2), (9, 3), (9, 4), (9, 5), (9, 6),
+(8, 1), (8, 6), (8, 7), (8, 11),
+(3, 7), (3, 8), (3, 9),
+(4, 7),
+(6, 10),
+(7, 11),
+(2, 12);
+
+INSERT INTO audit_logs (user_id, action, entity_name, entity_id, new_data, ip_address, user_agent, created_at) VALUES
+(4, 'VIEW_RECORD', 'medical_records', 'HSBA-2026-0001', '{"patientName":"Trần Văn Nam","reason":"Tái khám theo lịch hẹn khoa Nội"}', '192.168.1.104', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', NOW() - INTERVAL 2 HOUR),
+(4, 'EDIT_RECORD', 'medical_records', 'HSBA-2026-0001', '{"patientName":"Trần Văn Nam","reason":"Bổ sung chỉ định xét nghiệm đường huyết"}', '192.168.1.104', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', NOW() - INTERVAL 1 HOUR),
+(2, 'VIEW_RECORD', 'medical_records', 'HSBA-2026-0001', '{"patientName":"Trần Văn Nam","reason":"Kiểm tra chất lượng dịch vụ chuyên môn định kỳ"}', '192.168.1.102', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', NOW() - INTERVAL 30 MINUTE);
+
 -- 3. KHOA PHÒNG & PHÒNG CHỨC NĂNG
 INSERT INTO departments (id, code, name, description, location) VALUES
 (1, 'K_NOI', 'Khoa Nội Tổng Quát', 'Khám và điều trị nội khoa người lớn', 'Tầng 1 - Khu A'),

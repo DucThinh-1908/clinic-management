@@ -20,7 +20,14 @@ public class WebController {
         "/services",
         "/services.html",
         "/trang-chu",
-        "/index"
+        "/index",
+        "/dang-nhap",
+        "/login",
+        "/quen-mat-khau",
+        "/forgot-password",
+        "/admin/tai-khoan",
+        "/admin/phan-quyen",
+        "/admin/nhat-ky-ho-so"
     })
     public String forwardToSpa() {
         return "forward:/index.html";

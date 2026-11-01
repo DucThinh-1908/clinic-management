@@ -97,6 +97,17 @@ CREATE TABLE system_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+-- Bảng mã thông báo đặt lại mật khẩu (Password Reset Tokens - UC-TK04)
+CREATE TABLE password_reset_tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token VARCHAR(100) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    is_used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_prt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB COMMENT='Lưu mã token xác thực khôi phục mật khẩu';
+
 -- -----------------------------------------------------------------------------
 -- PHẦN 2: CƠ CẤU TỔ CHỨC, NHÂN SỰ & CA LÀM VIỆC (MANAGER)
 -- -----------------------------------------------------------------------------

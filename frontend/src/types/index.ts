@@ -51,3 +51,43 @@ export interface ContactFormData {
   branch: string
   message: string
 }
+
+export interface AuthUser {
+  id: number
+  username: string
+  email?: string
+  phone?: string
+  avatarUrl?: string
+  isActive: boolean
+  roles: string[]
+  permissions: string[]
+  lastLoginAt?: string
+}
+
+export interface RoleItem {
+  id: number
+  code: string
+  name: string
+  description?: string
+  permissions?: PermissionItem[]
+}
+
+export interface PermissionItem {
+  id: number
+  code: string
+  name: string
+  module: string
+}
+
+export interface MedicalRecordAccessLog {
+  id: number
+  userId?: number
+  username: string
+  roleName: string
+  action: string
+  recordCode: string
+  patientName: string
+  reason: string
+  ipAddress: string
+  createdAt: string
+}

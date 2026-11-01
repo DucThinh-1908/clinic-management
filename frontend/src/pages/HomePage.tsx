@@ -1,12 +1,21 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DOCTORS, SERVICES } from '../data/mockData'
+import type { AuthUser } from '../types'
 
 interface HomePageProps {
   onOpenAppointment: (specialty?: string) => void
+  currentUser?: AuthUser | null
+  onOpenChangePassword?: () => void
+  onLogout?: () => void
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onOpenAppointment }) => {
+export const HomePage: React.FC<HomePageProps> = ({
+  onOpenAppointment,
+  currentUser,
+  onOpenChangePassword,
+  onLogout,
+}) => {
   const [quickForm, setQuickForm] = useState({
     fullName: '',
     phone: '',
@@ -187,6 +196,212 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAppointment }) => {
           </div>
         </div>
       </div>
+
+      {/* QUẢN TRỊ TÀI KHOẢN VÀ PHÂN QUYỀN */}
+      <section style={{ padding: '54px 0', background: 'var(--soft)', borderBottom: '1px solid var(--border)' }}>
+        <div className="container">
+          <div style={{ textAlign: 'center', maxWidth: '780px', margin: '0 auto 36px' }}>
+            <span className="eyebrow">Phân hệ chức năng hệ thống</span>
+            <h2 style={{ fontSize: '32px', margin: '6px 0 12px', color: 'var(--ink)' }}>
+              Quản lý tài khoản và phân quyền
+            </h2>
+            <p style={{ color: 'var(--muted)', fontSize: '15px', lineHeight: 1.6, margin: 0 }}>
+              Giao diện trực quan cho toàn bộ các chức năng quản lý người dùng: Đăng nhập, Đăng xuất, Đổi mật khẩu, Quên mật khẩu, Quản trị tài khoản, Phân quyền vai trò và Nhật ký truy cập hồ sơ bệnh án.
+            </p>
+          </div>
+
+          {/* Test Accounts Bar */}
+          <div
+            style={{
+              background: '#ffffff',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+              padding: '16px 22px',
+              marginBottom: '32px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '14px',
+              fontSize: '13.5px',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <div>
+              <strong>Tài khoản thử nghiệm hệ thống (Mật khẩu: 123456):</strong>
+              <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap', color: 'var(--ink)' }}>
+                <span>Quản trị viên: <code>admin</code></span>
+                <span>Quản lý: <code>manager</code></span>
+                <span>Bác sĩ: <code>doctor_an</code></span>
+                <span>Lễ tân: <code>receptionist</code></span>
+                <span>Bệnh nhân: <code>patient_nam</code></span>
+              </div>
+            </div>
+            <div>
+              {currentUser ? (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <span style={{ color: '#03543f', fontWeight: 650 }}>
+                    Đang đăng nhập: {currentUser.username} ({currentUser.roles.join(', ')})
+                  </span>
+                  {onLogout && (
+                    <button className="btn btn-sm btn-light" onClick={onLogout} style={{ color: '#e02424', border: '1px solid var(--border)' }}>
+                      Đăng xuất
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <Link to="/dang-nhap" className="btn btn-sm btn-primary">
+                  Đăng nhập ngay
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Cards Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '22px' }}>
+            {/* Đăng nhập */}
+            <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid var(--border)', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', background: 'var(--soft)', padding: '4px 10px', borderRadius: '6px' }}>
+                    Xác thực
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Tất cả người dùng</span>
+                </div>
+                <h3 style={{ fontSize: '18px', margin: '0 0 8px', color: 'var(--ink)' }}>Đăng nhập hệ thống</h3>
+                <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Xác thực tên đăng nhập và mật khẩu an toàn qua chuẩn mã hóa, kiểm tra trạng thái kích hoạt tài khoản và cấp phiên làm việc.
+                </p>
+              </div>
+              <Link to="/dang-nhap" className="btn btn-outline btn-sm" style={{ textAlign: 'center', width: '100%' }}>
+                Mở giao diện Đăng nhập
+              </Link>
+            </div>
+
+            {/* Đăng xuất */}
+            <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid var(--border)', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', background: 'var(--soft)', padding: '4px 10px', borderRadius: '6px' }}>
+                    Phiên làm việc
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Tất cả người dùng</span>
+                </div>
+                <h3 style={{ fontSize: '18px', margin: '0 0 8px', color: 'var(--ink)' }}>Đăng xuất an toàn</h3>
+                <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Thu hồi phiên làm việc, xóa dữ liệu xác thực trên trình duyệt và bảo vệ an toàn thông tin tài khoản khi rời thiết bị.
+                </p>
+              </div>
+              {currentUser && onLogout ? (
+                <button className="btn btn-sm btn-light" onClick={onLogout} style={{ color: '#e02424', border: '1px solid var(--border)', width: '100%' }}>
+                  Đăng xuất tài khoản ({currentUser.username})
+                </button>
+              ) : (
+                <Link to="/dang-nhap" className="btn btn-sm btn-light" style={{ textAlign: 'center', width: '100%', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                  Đăng nhập để thử đăng xuất
+                </Link>
+              )}
+            </div>
+
+            {/* Đổi mật khẩu */}
+            <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid var(--border)', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', background: 'var(--soft)', padding: '4px 10px', borderRadius: '6px' }}>
+                    Bảo mật
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Tất cả người dùng</span>
+                </div>
+                <h3 style={{ fontSize: '18px', margin: '0 0 8px', color: 'var(--ink)' }}>Đổi mật khẩu</h3>
+                <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Người dùng chủ động thay đổi mật khẩu định kỳ: xác thực mật khẩu hiện tại, kiểm tra độ dài tối thiểu và mã hóa an toàn.
+                </p>
+              </div>
+              {onOpenChangePassword ? (
+                <button className="btn btn-outline btn-sm" onClick={onOpenChangePassword} style={{ width: '100%' }}>
+                  Mở hộp thoại Đổi mật khẩu
+                </button>
+              ) : null}
+            </div>
+
+            {/* Quên mật khẩu */}
+            <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid var(--border)', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', background: 'var(--soft)', padding: '4px 10px', borderRadius: '6px' }}>
+                    Khôi phục
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Tất cả người dùng</span>
+                </div>
+                <h3 style={{ fontSize: '18px', margin: '0 0 8px', color: 'var(--ink)' }}>Quên và đặt lại mật khẩu</h3>
+                <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Quy trình khôi phục: gửi yêu cầu nhận mã xác thực bảo mật có hiệu lực 15 phút và thiết lập mật khẩu mới trực tiếp.
+                </p>
+              </div>
+              <Link to="/quen-mat-khau" className="btn btn-outline btn-sm" style={{ textAlign: 'center', width: '100%' }}>
+                Mở giao diện Quên mật khẩu
+              </Link>
+            </div>
+
+            {/* Quản lý tài khoản */}
+            <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid var(--border)', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', background: 'var(--soft)', padding: '4px 10px', borderRadius: '6px' }}>
+                    Quản trị
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Quản trị viên</span>
+                </div>
+                <h3 style={{ fontSize: '18px', margin: '0 0 8px', color: 'var(--ink)' }}>Quản lý tài khoản</h3>
+                <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Tra cứu danh sách tài khoản toàn hệ thống, tạo tài khoản nhân sự mới và thực hiện khóa hoặc mở khóa tài khoản ngay lập tức.
+                </p>
+              </div>
+              <Link to="/admin/tai-khoan" className="btn btn-primary btn-sm" style={{ textAlign: 'center', width: '100%' }}>
+                Vào Quản lý tài khoản
+              </Link>
+            </div>
+
+            {/* Phân quyền vai trò */}
+            <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid var(--border)', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', background: 'var(--soft)', padding: '4px 10px', borderRadius: '6px' }}>
+                    Phân quyền
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Quản trị viên</span>
+                </div>
+                <h3 style={{ fontSize: '18px', margin: '0 0 8px', color: 'var(--ink)' }}>Phân quyền và vai trò</h3>
+                <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Chọn tài khoản để gán vai trò tương ứng và theo dõi danh mục quyền hạn chi tiết được phân bổ cho từng chức danh phòng khám.
+                </p>
+              </div>
+              <Link to="/admin/phan-quyen" className="btn btn-primary btn-sm" style={{ textAlign: 'center', width: '100%' }}>
+                Vào Phân quyền & Vai trò
+              </Link>
+            </div>
+
+            {/* Nhật ký truy cập hồ sơ */}
+            <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid var(--border)', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--shadow-sm)' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', background: 'var(--soft)', padding: '4px 10px', borderRadius: '6px' }}>
+                    Kiểm toán
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Quản trị viên, Quản lý</span>
+                </div>
+                <h3 style={{ fontSize: '18px', margin: '0 0 8px', color: 'var(--ink)' }}>Nhật ký truy cập hồ sơ</h3>
+                <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Theo dõi và giám sát lịch sử xem, chỉnh sửa và in ấn hồ sơ bệnh án theo thời gian thực kèm thông tin người thao tác và địa chỉ mạng.
+                </p>
+              </div>
+              <Link to="/admin/nhat-ky-ho-so" className="btn btn-primary btn-sm" style={{ textAlign: 'center', width: '100%' }}>
+                Vào Nhật ký truy cập hồ sơ
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Featured Services */}
       <section style={{ background: '#f6fbfb' }}>

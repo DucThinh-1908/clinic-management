@@ -212,9 +212,12 @@ CREATE TABLE patients (
     blood_group ENUM('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'UNKNOWN') DEFAULT 'UNKNOWN',
     medical_history TEXT COMMENT 'Tiền sử bệnh mạn tính',
     drug_allergies TEXT COMMENT 'Tiền sử dị ứng thuốc/thức ăn',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Trạng thái hoạt động',
+    merged_into_id BIGINT NULL COMMENT 'ID hồ sơ đích nếu đã gộp',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_patient_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    CONSTRAINT fk_patient_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_patient_merged_into FOREIGN KEY (merged_into_id) REFERENCES patients(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Bảng lịch hẹn khám (Appointments)

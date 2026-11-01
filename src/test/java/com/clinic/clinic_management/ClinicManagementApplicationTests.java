@@ -266,4 +266,184 @@ class ClinicManagementApplicationTests {
 		assertTrue(managerLogs.stream().anyMatch(l -> "HSBA-2026-TEST".equals(l.getRecordCode())),
 				"Nhat ky vua tao phai xuat hien trong danh sach");
 	}
+
+	@Autowired
+	private PatientManagementService patientManagementService;
+
+	// UC-BN01: Dang ky ho so benh nhan moi (Le tan / Benh nhan)
+	@Test
+	@Order(11)
+	void testUcBn01CreatePatient() {
+		com.clinic.clinic_management.dto.PatientDtos.CreatePatientRequest req = new com.clinic.clinic_management.dto.PatientDtos.CreatePatientRequest();
+		String phone = "0977" + (int)(Math.random() * 900000 + 100000);
+		req.setFullName("Tran Thi Mai Hoa");
+		req.setGender("FEMALE");
+		req.setDateOfBirth(java.time.LocalDate.of(1995, 5, 20));
+		req.setPhone(phone);
+		req.setEmail("hoa.tran@example.com");
+		req.setIdentityCard("001195" + (int)(Math.random() * 900000 + 100000));
+		req.setHealthInsuranceNumber("GD40195" + (int)(Math.random() * 9000000 + 1000000));
+		req.setAddress("Cau Giay, Ha Noi");
+		req.setBloodGroup("A+");
+
+		// Receptionist creates patient
+		var created = patientManagementService.createPatient(req, 3L, "127.0.0.1");
+		assertNotNull(created.getId(), "Ho so benh nhan phai co ID");
+		assertNotNull(created.getPatientCode(), "Ma ho so phai duoc tu dong tao");
+		assertTrue(created.getPatientCode().startsWith("BN"), "Ma ho so bat dau bang BN");
+		assertEquals("Tran Thi Mai Hoa", created.getFullName());
+		assertEquals("A+", created.getBloodGroup());
+		assertTrue(created.getIsActive(), "Ho so tao moi mac dinh phai kich hoat");
+
+		// Duplicate phone throws error
+		assertThrows(IllegalArgumentException.class, () -> {
+			patientManagementService.createPatient(req, 3L, "127.0.0.1");
+		}, "Trung so dien thoai phai bao loi de phong ngua trung lap");
+	}
+
+	// UC-BN02: Tim kiem benh nhan theo ten, so dien thoai, ma ho so
+	@Test
+	@Order(12)
+	void testUcBn02SearchPatients() {
+		// Doctor searches by existing patient name
+		var results = patientManagementService.searchPatients("Nam", true, 4L);
+		assertFalse(results.isEmpty(), "Bac si phai tim thay benh nhan ten Nam");
+		assertTrue(results.stream().anyMatch(p -> p.getPatientCode().equals("BN20260001")));
+
+		// Search by phone
+		var phoneResults = patientManagementService.searchPatients("0988777666", true, 3L);
+		assertFalse(phoneResults.isEmpty(), "Le tan phai tim thay benh nhan theo so dien thoai");
+
+		// Non-staff user cannot perform general patient search
+		assertThrows(SecurityException.class, () -> {
+			patientManagementService.searchPatients("Nam", true, 9L);
+		}, "Benh nhan khong duoc phep tim kiem danh sach toan bo benh nhan");
+	}
+
+	// UC-BN03: Cap nhat thong tin hanh chinh benh nhan (Le tan)
+	@Test
+	@Order(13)
+	void testUcBn03UpdatePatient() {
+		com.clinic.clinic_management.dto.PatientDtos.UpdatePatientRequest req = new com.clinic.clinic_management.dto.PatientDtos.UpdatePatientRequest();
+		req.setFullName("Nguyen Hoai Nam (Cap nhat)");
+		req.setGender("MALE");
+		req.setDateOfBirth(java.time.LocalDate.of(1990, 8, 14));
+		req.setPhone("0988777666");
+		req.setAddress("So 100 Thai Ha, Dong Da, Ha Noi");
+		req.setEmergencyContactName("Nguyen Van A");
+		req.setEmergencyContactPhone("0912345678");
+
+		// Receptionist updates
+		var updated = patientManagementService.updatePatient(1L, req, 3L, "127.0.0.1");
+		assertEquals("Nguyen Hoai Nam (Cap nhat)", updated.getFullName());
+		assertEquals("So 100 Thai Ha, Dong Da, Ha Noi", updated.getAddress());
+		assertEquals("Nguyen Van A", updated.getEmergencyContactName());
+
+		// Patient user is not allowed to perform receptionist administrative update
+		assertThrows(SecurityException.class, () -> {
+			patientManagementService.updatePatient(1L, req, 9L, "127.0.0.1");
+		}, "Benh nhan khong the tu y thuc hien chuc nang cap nhat hanh chinh cua Le tan");
+	}
+
+	// UC-BN04: Quan ly tien su benh va di ung (Bac si)
+	@Test
+	@Order(14)
+	void testUcBn04UpdateMedicalHistory() {
+		com.clinic.clinic_management.dto.PatientDtos.UpdateMedicalHistoryRequest req = new com.clinic.clinic_management.dto.PatientDtos.UpdateMedicalHistoryRequest();
+		req.setBloodGroup("O+");
+		req.setMedicalHistory("Tang huyet ap do 1, da day HP duong tinh");
+		req.setDrugAllergies("Di ung Penicillin gay man ngua nhe");
+
+		// Doctor updates
+		var updated = patientManagementService.updateMedicalHistory(1L, req, 4L, "127.0.0.1");
+		assertEquals("O+", updated.getBloodGroup());
+		assertEquals("Tang huyet ap do 1, da day HP duong tinh", updated.getMedicalHistory());
+		assertEquals("Di ung Penicillin gay man ngua nhe", updated.getDrugAllergies());
+
+		// Receptionist is blocked from updating clinical medical history
+		assertThrows(SecurityException.class, () -> {
+			patientManagementService.updateMedicalHistory(1L, req, 3L, "127.0.0.1");
+		}, "Le tan khong co chuyen mon bac si de sua tien su benh va di ung");
+	}
+
+	// UC-BN05: Cap nhat thong tin bao hiem y te (Le tan)
+	@Test
+	@Order(15)
+	void testUcBn05UpdateInsurance() {
+		com.clinic.clinic_management.dto.PatientDtos.UpdateInsuranceRequest req = new com.clinic.clinic_management.dto.PatientDtos.UpdateInsuranceRequest();
+		req.setHealthInsuranceNumber("DN4019998887776");
+
+		// Receptionist updates
+		var updated = patientManagementService.updateInsurance(1L, req, 3L, "127.0.0.1");
+		assertEquals("DN4019998887776", updated.getHealthInsuranceNumber());
+
+		// Patient is blocked from receptionist insurance update
+		assertThrows(SecurityException.class, () -> {
+			patientManagementService.updateInsurance(1L, req, 9L, "127.0.0.1");
+		}, "Benh nhan khong co quyen le tan de sua the BHYT");
+	}
+
+	// UC-BN06: Xem lich su kham benh
+	@Test
+	@Order(16)
+	void testUcBn06MedicalRecords() {
+		// Doctor views records of patient 1
+		var records = patientManagementService.getPatientMedicalRecords(1L, 4L);
+		assertFalse(records.isEmpty(), "Benh nhan 1 phai co lich su kham benh");
+		var first = records.get(0);
+		assertEquals("BA20261031001", first.getRecordCode());
+		assertNotNull(first.getDoctorName(), "Ten bac si phai duoc hien thi");
+		assertNotNull(first.getRoomName(), "Ten phong kham phai duoc hien thi");
+
+		// Patient 1 (userId 9) can view their own medical records
+		var patientRecords = patientManagementService.getPatientMedicalRecords(1L, 9L);
+		assertFalse(patientRecords.isEmpty(), "Benh nhan phai xem duoc ho so cua chinh minh");
+	}
+
+	// UC-BN07: Gop ho so trung / vo hieu hoa ho so (Quan ly)
+	@Test
+	@Order(17)
+	void testUcBn07MergeAndTogglePatient() {
+		// Create a duplicate test patient
+		com.clinic.clinic_management.dto.PatientDtos.CreatePatientRequest dupReq = new com.clinic.clinic_management.dto.PatientDtos.CreatePatientRequest();
+		String phoneDup = "0966" + (int)(Math.random() * 900000 + 100000);
+		dupReq.setFullName("Nguyen Hoai Nam (Ho so trung)");
+		dupReq.setGender("MALE");
+		dupReq.setDateOfBirth(java.time.LocalDate.of(1990, 8, 14));
+		dupReq.setPhone(phoneDup);
+		var dupPatient = patientManagementService.createPatient(dupReq, 3L, "127.0.0.1");
+
+		// Receptionist cannot merge duplicate patients
+		com.clinic.clinic_management.dto.PatientDtos.MergePatientRequest mergeReq = new com.clinic.clinic_management.dto.PatientDtos.MergePatientRequest();
+		mergeReq.setPrimaryPatientId(1L);
+		mergeReq.setDuplicatePatientId(dupPatient.getId());
+		mergeReq.setNote("Gop ho so tao trung lap do le tan truoc");
+
+		assertThrows(SecurityException.class, () -> {
+			patientManagementService.mergePatients(mergeReq, 3L, "127.0.0.1");
+		}, "Le tan khong co tham quyen gop ho so benh nhan");
+
+		// Manager (user 2) merges duplicate patient into primary patient (1)
+		var merged = patientManagementService.mergePatients(mergeReq, 2L, "127.0.0.1");
+		assertNotNull(merged);
+		assertEquals(1L, merged.getId());
+
+		// Verify duplicate patient is now deactivated and points to primary
+		var fetchedDup = patientManagementService.getPatientById(dupPatient.getId(), 2L);
+		assertFalse(fetchedDup.getIsActive(), "Ho so trung phai bi vo hieu hoa sau khi gop");
+		assertEquals(1L, fetchedDup.getMergedIntoId(), "mergedIntoId phai tro ve ho so goc");
+
+		// Test toggle active status by Manager
+		com.clinic.clinic_management.dto.PatientDtos.ToggleActiveRequest toggleReq = new com.clinic.clinic_management.dto.PatientDtos.ToggleActiveRequest();
+		toggleReq.setIsActive(false);
+		toggleReq.setReason("Tam dung ho so de kiem tra thong tin");
+		var toggled = patientManagementService.togglePatientActive(1L, toggleReq, 2L, "127.0.0.1");
+		assertFalse(toggled.getIsActive(), "Ho so goc da bi tam dung");
+
+		// Reactivate
+		toggleReq.setIsActive(true);
+		toggleReq.setReason("Mo lai ho so sau khi xac minh xong");
+		var reactivated = patientManagementService.togglePatientActive(1L, toggleReq, 2L, "127.0.0.1");
+		assertTrue(reactivated.getIsActive(), "Ho so goc da duoc mo lai");
+	}
 }

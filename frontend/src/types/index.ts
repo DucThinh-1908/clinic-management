@@ -91,3 +91,51 @@ export interface MedicalRecordAccessLog {
   ipAddress: string
   createdAt: string
 }
+
+export interface PatientDetail {
+  id: number
+  userId?: number
+  patientCode: string
+  fullName: string
+  gender: string
+  dateOfBirth: string
+  age?: number
+  phone: string
+  email?: string
+  identityCard?: string
+  healthInsuranceNumber?: string
+  address?: string
+  emergencyContactName?: string
+  emergencyContactPhone?: string
+  bloodGroup?: string
+  medicalHistory?: string
+  drugAllergies?: string
+  isActive: boolean
+  mergedIntoId?: number
+  mergedIntoCode?: string
+  createdAt: string
+  updatedAt: string
+  totalVisits: number
+}
+
+export interface MedicalRecordSummary {
+  id: number
+  recordCode: string
+  patientId: number
+  doctorId: number
+  doctorName?: string
+  doctorQualification?: string
+  roomId: number
+  roomName?: string
+  roomNumber?: string
+  chiefComplaint: string
+  historyOfPresentIllness?: string
+  physicalExamination?: string
+  initialDiagnosis?: string
+  finalDiagnosis: string
+  icd10Code?: string
+  doctorAdvice?: string
+  followUpDate?: string
+  status: string
+  createdAt: string
+}

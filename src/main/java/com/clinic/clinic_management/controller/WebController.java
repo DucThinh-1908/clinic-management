@@ -29,7 +29,10 @@ public class WebController {
         "/forgot-password",
         "/admin/tai-khoan",
         "/admin/phan-quyen",
-        "/admin/nhat-ky-ho-so"
+        "/admin/nhat-ky-ho-so",
+        "/quan-ly-benh-nhan",
+        "/ho-so-benh-nhan",
+        "/patient-portal"
     })
     public String forwardToSpa() {
         return "forward:/index.html";

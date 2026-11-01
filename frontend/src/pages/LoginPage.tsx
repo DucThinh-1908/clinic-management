@@ -28,8 +28,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       if (res.ok && data.success) {
         onLoginSuccess(data.user, data.token)
-        if (data.user.roles.includes('admin') || data.user.roles.includes('manager')) {
+        const userRoles = (data.user.roles || []).map((r: string) => r.toLowerCase())
+        if (userRoles.includes('admin') || userRoles.includes('manager')) {
           navigate('/admin/tai-khoan')
+        } else if (userRoles.some((r: string) => ['receptionist', 'doctor', 'nurse', 'technician', 'pharmacist', 'cashier'].includes(r))) {
+          navigate('/quan-ly-benh-nhan')
         } else {
           navigate('/')
         }

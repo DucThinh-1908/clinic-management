@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { DOCTORS, SERVICES } from '../data/mockData'
 import type { AuthUser } from '../types'
@@ -38,6 +38,16 @@ export const HomePage: React.FC<HomePageProps> = ({
     }, 3000)
   }
 
+  useEffect(() => {
+    if (currentUser) {
+      setQuickForm((prev) => ({
+        ...prev,
+        fullName: prev.fullName || currentUser.username,
+        phone: prev.phone || currentUser.phone || '',
+      }))
+    }
+  }, [currentUser])
+
   return (
     <div>
       {/* Hero Section */}
@@ -73,7 +83,37 @@ export const HomePage: React.FC<HomePageProps> = ({
 
           {/* Quick Appointment Card */}
           <div style={{ background: '#fff', color: 'var(--ink)', borderRadius: '18px', padding: '30px', boxShadow: '0 18px 50px rgba(0,0,0,.2)', maxWidth: '440px', justifySelf: 'end', width: '100%' }}>
-            {quickSubmitted ? (
+            {!currentUser ? (
+              <div style={{ textAlign: 'center', padding: '24px 8px' }}>
+                <div
+                  style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    background: 'rgba(8,127,140,.12)',
+                    color: 'var(--primary)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: '24px',
+                    margin: '0 auto 16px',
+                    fontWeight: 700,
+                  }}
+                >
+                  !
+                </div>
+                <h3 style={{ margin: '0 0 8px', fontSize: '20px' }}>Yêu cầu đăng nhập</h3>
+                <p style={{ margin: '0 0 20px', fontSize: '14px', color: 'var(--muted)', lineHeight: 1.6 }}>
+                  Quý khách cần đăng nhập tài khoản vào hệ thống trước khi đăng ký lịch khám bệnh trực tuyến.
+                </p>
+                <Link
+                  className="btn btn-primary"
+                  to="/dang-nhap"
+                  style={{ display: 'inline-block', width: '100%', textAlign: 'center', boxSizing: 'border-box' }}
+                >
+                  Đăng nhập ngay
+                </Link>
+              </div>
+            ) : quickSubmitted ? (
               <div style={{ textAlign: 'center', padding: '24px 8px' }}>
                 <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#e8f5e9', color: '#2e7d32', display: 'grid', placeItems: 'center', fontSize: '28px', margin: '0 auto 14px' }}>
                   ✓
@@ -144,7 +184,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 </div>
 
                 <button className="btn btn-primary" type="submit" style={{ width: '100%', marginTop: '6px' }}>
-                  Gửi yêu cầu đặt lịch →
+                  Gửi yêu cầu đặt lịch
                 </button>
               </form>
             )}

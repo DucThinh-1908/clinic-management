@@ -7,6 +7,7 @@ import com.clinic.clinic_management.entity.Role;
 import com.clinic.clinic_management.entity.User;
 import com.clinic.clinic_management.repository.AuditLogRepository;
 import com.clinic.clinic_management.repository.PasswordResetTokenRepository;
+import com.clinic.clinic_management.repository.RoleRepository;
 import com.clinic.clinic_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -27,12 +28,73 @@ public class AuthService {
     private UserRepository userRepository;
 
     @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Autowired
     private AuditLogRepository auditLogRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    @Transactional
+    public LoginResponse register(RegisterRequest request, String ipAddress) {
+        if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+            return new LoginResponse(false, "Tên đăng nhập không được để trống.", null, null);
+        }
+        String username = request.getUsername().trim();
+        if (username.length() < 3) {
+            return new LoginResponse(false, "Tên đăng nhập phải có ít nhất 3 ký tự.", null, null);
+        }
+        if (userRepository.existsByUsername(username)) {
+            return new LoginResponse(false, "Tên đăng nhập '" + username + "' đã được sử dụng.", null, null);
+        }
+
+        if (request.getPassword() == null || request.getPassword().length() < 6) {
+            return new LoginResponse(false, "Mật khẩu phải có độ dài tối thiểu từ 6 ký tự.", null, null);
+        }
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            return new LoginResponse(false, "Xác nhận mật khẩu không trùng khớp với mật khẩu mới.", null, null);
+        }
+
+        if (request.getPhone() == null || request.getPhone().trim().isEmpty()) {
+            return new LoginResponse(false, "Số điện thoại là thông tin bắt buộc để liên hệ khám bệnh.", null, null);
+        }
+        String phone = request.getPhone().trim();
+        if (userRepository.existsByPhone(phone)) {
+            return new LoginResponse(false, "Số điện thoại '" + phone + "' đã được đăng ký tài khoản trong hệ thống.", null, null);
+        }
+
+        String email = request.getEmail() != null && !request.getEmail().trim().isEmpty() ? request.getEmail().trim() : null;
+        if (email != null && userRepository.existsByEmail(email)) {
+            return new LoginResponse(false, "Địa chỉ email '" + email + "' đã được sử dụng.", null, null);
+        }
+
+        User user = new User();
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setPhone(phone);
+        user.setEmail(email);
+        user.setIsActive(true);
+        user.setIsVerified(true);
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+
+        Set<Role> roles = new HashSet<>();
+        roleRepository.findByCode("patient").ifPresent(roles::add);
+        user.setRoles(roles);
+
+        User saved = userRepository.save(user);
+
+        AuditLog auditLog = new AuditLog(saved.getId(), "REGISTER", "users", String.valueOf(saved.getId()),
+                "{\"username\":\"" + saved.getUsername() + "\",\"role\":\"patient\"}", ipAddress);
+        auditLogRepository.save(auditLog);
+
+        String token = UUID.randomUUID().toString();
+        UserSummary summary = toUserSummary(saved);
+        return new LoginResponse(true, "Đăng ký tài khoản bệnh nhân thành công!", token, summary);
+    }
 
     @Transactional
     public LoginResponse login(LoginRequest request, String ipAddress) {

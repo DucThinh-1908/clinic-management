@@ -101,13 +101,22 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <p style={{ margin: '0 0 20px', fontSize: '14px', color: 'var(--muted)', lineHeight: 1.6 }}>
                   Quý khách cần đăng nhập tài khoản vào hệ thống trước khi đăng ký lịch khám bệnh trực tuyến.
                 </p>
-                <Link
-                  className="btn btn-primary"
-                  to="/dang-nhap"
-                  style={{ display: 'inline-block', width: '100%', textAlign: 'center', boxSizing: 'border-box' }}
-                >
-                  Đăng nhập ngay
-                </Link>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <Link
+                    className="btn btn-primary"
+                    to="/dang-nhap"
+                    style={{ display: 'inline-block', width: '100%', textAlign: 'center', boxSizing: 'border-box' }}
+                  >
+                    Đăng nhập ngay
+                  </Link>
+                  <Link
+                    className="btn btn-outline"
+                    to="/dang-ky"
+                    style={{ display: 'inline-block', width: '100%', textAlign: 'center', boxSizing: 'border-box' }}
+                  >
+                    Đăng ký tài khoản mới
+                  </Link>
+                </div>
               </div>
             ) : quickSubmitted ? (
               <div style={{ textAlign: 'center', padding: '24px 8px' }}>

@@ -23,6 +23,8 @@ public class WebController {
         "/index",
         "/dang-nhap",
         "/login",
+        "/dang-ky",
+        "/register",
         "/quen-mat-khau",
         "/forgot-password",
         "/admin/tai-khoan",

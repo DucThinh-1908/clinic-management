@@ -17,6 +17,19 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
+        String ipAddress = servletRequest.getRemoteAddr();
+        LoginResponse response = authService.register(request, ipAddress);
+        if (!response.isSuccess()) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", response.getMessage());
+            return ResponseEntity.badRequest().body(err);
+        }
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest servletRequest) {
         String ipAddress = servletRequest.getRemoteAddr();

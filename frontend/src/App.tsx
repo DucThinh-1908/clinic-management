@@ -10,6 +10,7 @@ import { AboutPage } from './pages/AboutPage'
 import { ContactPage } from './pages/ContactPage'
 import { ServicesPage } from './pages/ServicesPage'
 import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { AdminAccountPortal } from './pages/AdminAccountPortal'
 import type { AuthUser } from './types'
@@ -122,6 +123,10 @@ function App() {
             {/* Đăng nhập */}
             <Route path="/dang-nhap" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
             <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
+
+            {/* Đăng ký */}
+            <Route path="/dang-ky" element={<RegisterPage onRegisterSuccess={handleLoginSuccess} />} />
+            <Route path="/register" element={<RegisterPage onRegisterSuccess={handleLoginSuccess} />} />
 
             {/* Quên & Đặt lại mật khẩu */}
             <Route path="/quen-mat-khau" element={<ForgotPasswordPage />} />

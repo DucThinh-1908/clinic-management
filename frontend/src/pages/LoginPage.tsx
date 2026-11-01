@@ -126,6 +126,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             >
               {loading ? 'Đang xác thực...' : 'Đăng nhập'}
             </button>
+
+            <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '14px', color: 'var(--muted)' }}>
+              Chưa có tài khoản?{' '}
+              <Link to="/dang-ky" style={{ color: 'var(--primary)', fontWeight: 700 }}>
+                Đăng ký tài khoản mới
+              </Link>
+            </div>
           </form>
 
           {/* Quick select demo accounts */}

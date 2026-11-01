@@ -81,9 +81,34 @@ class ClinicManagementApplicationTests {
 		assertFalse(wrongRes.isSuccess(), "Mat khau sai phai bao loi");
 	}
 
-	// UC-TK02: Dang xuat
+	// Dang ky tai khoan benh nhan
 	@Test
 	@Order(5)
+	void testPatientRegistration() {
+		String testUser = "patient_new_" + System.currentTimeMillis();
+		String testPhone = "09" + (int)(Math.random() * 90000000 + 10000000);
+		RegisterRequest req = new RegisterRequest(testUser, "password123", "password123", testUser + "@gmail.com", testPhone);
+
+		LoginResponse res = authService.register(req, "127.0.0.1");
+		assertTrue(res.isSuccess(), "Dang ky benh nhan phai thanh cong");
+		assertNotNull(res.getToken(), "Token dang nhap phai duoc cap ngay sau khi dang ky");
+		assertNotNull(res.getUser(), "Thong tin nguoi dung phai duoc tra ve");
+		assertTrue(res.getUser().getRoles().contains("patient"), "Vai tro mac dinh phai la patient");
+
+		// Test password mismatch
+		RegisterRequest mismatchReq = new RegisterRequest("mismatch_u", "password123", "different_pass", null, "0988000111");
+		LoginResponse mismatchRes = authService.register(mismatchReq, "127.0.0.1");
+		assertFalse(mismatchRes.isSuccess(), "Xac nhan mat khau khong khop phai bao loi");
+
+		// Test duplicate username
+		RegisterRequest dupReq = new RegisterRequest("admin", "password123", "password123", null, "0988000222");
+		LoginResponse dupRes = authService.register(dupReq, "127.0.0.1");
+		assertFalse(dupRes.isSuccess(), "Ten dang nhap da ton tai phai bao loi");
+	}
+
+	// UC-TK02: Dang xuat
+	@Test
+	@Order(6)
 	void testUcTk02Logout() {
 		boolean loggedOut = authService.logout(1L, "127.0.0.1");
 		assertTrue(loggedOut, "Dang xuat phai thanh cong va ghi nhan audit log");

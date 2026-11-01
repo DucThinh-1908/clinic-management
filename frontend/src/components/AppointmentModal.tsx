@@ -68,13 +68,18 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
             <p style={{ color: 'var(--muted)', fontSize: '14.5px', lineHeight: 1.6, margin: '0 0 24px' }}>
               Quý khách cần đăng nhập tài khoản vào hệ thống trước khi đăng ký lịch khám bệnh.
             </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button type="button" className="btn btn-light" onClick={onClose} style={{ flex: 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <Link to="/dang-nhap" className="btn btn-primary" onClick={onClose} style={{ flex: 1, textAlign: 'center' }}>
+                  Đăng nhập ngay
+                </Link>
+                <Link to="/dang-ky" className="btn btn-outline" onClick={onClose} style={{ flex: 1, textAlign: 'center' }}>
+                  Đăng ký mới
+                </Link>
+              </div>
+              <button type="button" className="btn btn-light btn-sm" onClick={onClose} style={{ width: '100%', color: 'var(--muted)' }}>
                 Để sau
               </button>
-              <Link to="/dang-nhap" className="btn btn-primary" onClick={onClose} style={{ flex: 1.5, textAlign: 'center' }}>
-                Đăng nhập ngay
-              </Link>
             </div>
           </div>
         </div>

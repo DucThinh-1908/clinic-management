@@ -21,8 +21,15 @@ public class AccountManagementController {
     private AccountManagementService accountManagementService;
 
     @GetMapping
-    public ResponseEntity<List<UserSummary>> getAllAccounts() {
-        return ResponseEntity.ok(accountManagementService.getAllAccounts());
+    public ResponseEntity<?> getAllAccounts(@RequestParam(required = false) Long requesterId) {
+        try {
+            return ResponseEntity.ok(accountManagementService.getAllAccounts(requesterId));
+        } catch (SecurityException e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(err);
+        }
     }
 
     @PostMapping
@@ -34,6 +41,11 @@ public class AccountManagementController {
             String ipAddress = servletRequest.getRemoteAddr();
             UserSummary created = accountManagementService.createAccount(request, adminId, ipAddress);
             return ResponseEntity.ok(created);
+        } catch (SecurityException e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(err);
         } catch (IllegalArgumentException e) {
             Map<String, Object> err = new HashMap<>();
             err.put("success", false);
@@ -46,12 +58,17 @@ public class AccountManagementController {
     public ResponseEntity<?> toggleAccountStatus(
             @PathVariable Long id,
             @RequestBody StatusToggleRequest request,
-            @RequestParam(required = false, defaultValue = "1") Long adminId,
+            @RequestParam(required = false) Long adminId,
             HttpServletRequest servletRequest) {
         try {
             String ipAddress = servletRequest.getRemoteAddr();
             UserSummary updated = accountManagementService.toggleAccountStatus(id, request.getIsActive(), request.getReason(), adminId, ipAddress);
             return ResponseEntity.ok(updated);
+        } catch (SecurityException e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(err);
         } catch (IllegalArgumentException e) {
             Map<String, Object> err = new HashMap<>();
             err.put("success", false);

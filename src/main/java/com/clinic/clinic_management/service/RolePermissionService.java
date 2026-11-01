@@ -41,12 +41,27 @@ public class RolePermissionService {
         return roleRepository.findAll();
     }
 
+    public List<Role> getAllRoles(Long requesterId) {
+        if (requesterId != null) {
+            authService.validateAdminOrManager(requesterId);
+        }
+        return getAllRoles();
+    }
+
     public List<Permission> getAllPermissions() {
         return permissionRepository.findAll();
     }
 
+    public List<Permission> getAllPermissions(Long requesterId) {
+        if (requesterId != null) {
+            authService.validateAdminOrManager(requesterId);
+        }
+        return getAllPermissions();
+    }
+
     @Transactional
     public UserSummary assignRolesToUser(Long userId, Set<String> roleCodes, Long adminId, String ipAddress) {
+        authService.validateAdminOrManager(adminId);
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
             throw new IllegalArgumentException("Không tìm thấy người dùng với ID: " + userId);
@@ -72,6 +87,7 @@ public class RolePermissionService {
 
     @Transactional
     public Role assignPermissionsToRole(Long roleId, Set<String> permissionCodes, Long adminId, String ipAddress) {
+        authService.validateAdminOrManager(adminId);
         Optional<Role> roleOpt = roleRepository.findById(roleId);
         if (roleOpt.isEmpty()) {
             throw new IllegalArgumentException("Không tìm thấy vai trò với ID: " + roleId);

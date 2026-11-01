@@ -50,10 +50,10 @@ export const Footer: React.FC = () => {
           <div>
             <h3 style={{ color: '#fff', fontSize: '16px', margin: '0 0 16px' }}>Thông tin liên hệ</h3>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13.5px', color: '#bdd2d4' }}>
-              <li style={{ margin: '10px 0' }}>📍 Trụ sở: 123 Đường Sức Khỏe, Đống Đa, Hà Nội</li>
-              <li style={{ margin: '10px 0' }}>☎ Tổng đài: <strong>1900 1234</strong> (24/7)</li>
-              <li style={{ margin: '10px 0' }}>📱 Cấp cứu: <strong>0988 123 456</strong></li>
-              <li style={{ margin: '10px 0' }}>✉ Email: contact@careplusclinic.vn</li>
+              <li style={{ margin: '10px 0' }}> Trụ sở: 123 Đường Sức Khỏe, Đống Đa, Hà Nội</li>
+              <li style={{ margin: '10px 0' }}> Tổng đài: <strong>1900 1234</strong> (24/7)</li>
+              <li style={{ margin: '10px 0' }}> Cấp cứu: <strong>0338 715 287</strong></li>
+              <li style={{ margin: '10px 0' }}>✉ Email: ducthinhph23@gmai.com</li>
             </ul>
           </div>
         </div>

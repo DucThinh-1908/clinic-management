@@ -18,6 +18,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
 
+  const canManage = Boolean(
+    currentUser &&
+      currentUser.roles &&
+      currentUser.roles.some((r) => r.toLowerCase() === 'admin' || r.toLowerCase() === 'manager')
+  )
+
   const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
     color: isActive ? 'var(--primary)' : 'var(--ink)',
     fontWeight: isActive ? 750 : 600,
@@ -48,20 +54,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           <NavLink to="/gioi-thieu" style={navLinkStyle}>Giới thiệu</NavLink>
           <NavLink to="/dich-vu" style={navLinkStyle}>Dịch vụ & Gói khám</NavLink>
           <NavLink to="/lien-he" style={navLinkStyle}>Liên hệ</NavLink>
-          <NavLink
-            to="/admin/tai-khoan"
-            style={({ isActive }) => ({
-              color: isActive ? 'var(--primary-dark)' : 'var(--primary)',
-              fontWeight: 700,
-              background: isActive ? '#e0f2f1' : 'var(--soft)',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              border: '1px solid var(--primary-light)',
-              transition: 'all 0.2s',
-            })}
-          >
-            Quản trị hệ thống
-          </NavLink>
+          {canManage && (
+            <NavLink
+              to="/admin/tai-khoan"
+              style={({ isActive }) => ({
+                color: isActive ? 'var(--primary-dark)' : 'var(--primary)',
+                fontWeight: 700,
+                background: isActive ? '#e0f2f1' : 'var(--soft)',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                border: '1px solid var(--primary-light)',
+                transition: 'all 0.2s',
+              })}
+            >
+              Quản trị hệ thống
+            </NavLink>
+          )}
         </nav>
 
         {/* Actions */}
@@ -119,18 +127,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                     Đổi mật khẩu
                   </button>
 
-                  <Link
-                    to="/admin/tai-khoan"
-                    onClick={() => setUserDropdownOpen(false)}
-                    style={{
-                      display: 'block',
-                      padding: '10px 16px',
-                      fontSize: '13.5px',
-                      color: 'var(--primary-dark)',
-                    }}
-                  >
-                    Quản trị tài khoản & phân quyền
-                  </Link>
+                  {canManage && (
+                    <Link
+                      to="/admin/tai-khoan"
+                      onClick={() => setUserDropdownOpen(false)}
+                      style={{
+                        display: 'block',
+                        padding: '10px 16px',
+                        fontSize: '13.5px',
+                        color: 'var(--primary-dark)',
+                      }}
+                    >
+                      Quản trị tài khoản & phân quyền
+                    </Link>
+                  )}
 
                   <button
                     onClick={() => {
@@ -187,9 +197,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Link to="/gioi-thieu" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650 }}>Giới thiệu</Link>
           <Link to="/dich-vu" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650 }}>Dịch vụ & Gói khám</Link>
           <Link to="/lien-he" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650 }}>Liên hệ</Link>
-          <Link to="/admin/tai-khoan" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: 'var(--primary)' }}>
-            Quản trị hệ thống
-          </Link>
+          {canManage && (
+            <Link to="/admin/tai-khoan" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: 'var(--primary)' }}>
+              Quản trị hệ thống
+            </Link>
+          )}
           {!currentUser ? (
             <Link to="/dang-nhap" onClick={() => setMobileMenuOpen(false)} className="btn btn-outline" style={{ textAlign: 'center' }}>
               Đăng nhập

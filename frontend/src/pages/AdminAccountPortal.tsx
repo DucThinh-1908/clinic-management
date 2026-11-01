@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import type { AuthUser, RoleItem, PermissionItem, MedicalRecordAccessLog } from '../types'
 
 interface AdminAccountPortalProps {
@@ -52,10 +52,16 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const [logFilterAction, setLogFilterAction] = useState('ALL')
   const [logSearch, setLogSearch] = useState('')
 
+  const isAuthorized = Boolean(
+    currentUser &&
+      currentUser.roles &&
+      currentUser.roles.some((r) => r.toLowerCase() === 'admin' || r.toLowerCase() === 'manager')
+  )
+
   // Fetch accounts
   const loadAccounts = async () => {
     try {
-      const res = await fetch('/api/admin/accounts')
+      const res = await fetch('/api/admin/accounts?requesterId=' + (currentUser?.id || ''))
       if (res.ok) {
         const data = await res.json()
         setAccounts(data)
@@ -69,8 +75,8 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const loadRolesAndPermissions = async () => {
     try {
       const [rRes, pRes] = await Promise.all([
-        fetch('/api/admin/roles-permissions/roles'),
-        fetch('/api/admin/roles-permissions/permissions'),
+        fetch('/api/admin/roles-permissions/roles?requesterId=' + (currentUser?.id || '')),
+        fetch('/api/admin/roles-permissions/permissions?requesterId=' + (currentUser?.id || '')),
       ])
       if (rRes.ok && pRes.ok) {
         setRoles(await rRes.json())
@@ -84,7 +90,7 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   // Fetch medical record access logs
   const loadAccessLogs = async () => {
     try {
-      const res = await fetch('/api/admin/access-logs/medical-records')
+      const res = await fetch('/api/admin/access-logs/medical-records?requesterId=' + (currentUser?.id || ''))
       if (res.ok) {
         setAccessLogs(await res.json())
       }
@@ -94,10 +100,12 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   }
 
   useEffect(() => {
-    loadAccounts()
-    loadRolesAndPermissions()
-    loadAccessLogs()
-  }, [])
+    if (isAuthorized) {
+      loadAccounts()
+      loadRolesAndPermissions()
+      loadAccessLogs()
+    }
+  }, [isAuthorized])
 
   // Tạo tài khoản mới
   const handleCreateAccount = async (e: React.FormEvent) => {
@@ -136,18 +144,38 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const handleToggleStatus = async (user: AuthUser) => {
     const nextStatus = !user.isActive
     const actionText = nextStatus ? 'mở khóa' : 'khóa'
+
+    if (!nextStatus) {
+      if (currentUser?.id === user.id) {
+        alert('Bạn không thể tự khóa tài khoản của chính mình.')
+        return
+      }
+      const isCurrentManagerOnly = Boolean(
+        currentUser?.roles?.some((r) => r.toLowerCase() === 'manager') &&
+        !currentUser?.roles?.some((r) => r.toLowerCase() === 'admin')
+      )
+      const isTargetAdmin = user.roles?.some((r) => r.toLowerCase() === 'admin')
+      if (isCurrentManagerOnly && isTargetAdmin) {
+        alert('Quản lý không có quyền khóa tài khoản của Quản trị viên (Admin).')
+        return
+      }
+    }
+
     const reason = prompt(`Xác nhận lý do ${actionText} tài khoản ${user.username}:`, nextStatus ? 'Mở khóa theo yêu cầu' : 'Tạm khóa để kiểm tra')
     if (reason === null) return
 
     try {
-      const res = await fetch(`/api/admin/accounts/${user.id}/status?adminId=` + (currentUser?.id || 1), {
+      const res = await fetch(`/api/admin/accounts/${user.id}/status?adminId=` + (currentUser?.id || ''), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: nextStatus, reason }),
       })
+      const data = await res.json()
       if (res.ok) {
         setAccountActionMessage(`Đã ${actionText} tài khoản ${user.username} thành công.`)
         loadAccounts()
+      } else {
+        setAccountActionMessage('Lỗi: ' + (data.message || 'Không thể cập nhật trạng thái tài khoản.'))
       }
     } catch {
       setAccountActionMessage('Lỗi cập nhật trạng thái tài khoản.')
@@ -201,6 +229,44 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
       log.reason.toLowerCase().includes(logSearch.toLowerCase())
     return matchesAction && matchesSearch
   })
+
+  if (!currentUser) {
+    return (
+      <div style={{ background: '#f8fafb', minHeight: '80vh', padding: '60px 0', display: 'flex', alignItems: 'center' }}>
+        <div className="container" style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center', background: '#fff', padding: '40px 30px', borderRadius: '16px', boxShadow: 'var(--shadow-md)' }}>
+          <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(8,127,140,.12)', color: 'var(--primary)', display: 'grid', placeItems: 'center', fontSize: '26px', margin: '0 auto 16px', fontWeight: 700 }}>
+            !
+          </div>
+          <h2 style={{ fontSize: '22px', margin: '0 0 10px', color: 'var(--ink)' }}>Yêu cầu đăng nhập</h2>
+          <p style={{ color: 'var(--muted)', fontSize: '14.5px', lineHeight: 1.6, margin: '0 0 24px' }}>
+            Quý khách cần đăng nhập tài khoản Quản trị viên (Admin) hoặc Quản lý phòng khám (Manager) để truy cập chức năng này.
+          </p>
+          <Link className="btn btn-primary" to="/dang-nhap" style={{ width: '100%', display: 'inline-block', boxSizing: 'border-box' }}>
+            Đăng nhập ngay
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div style={{ background: '#f8fafb', minHeight: '80vh', padding: '60px 0', display: 'flex', alignItems: 'center' }}>
+        <div className="container" style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center', background: '#fff', padding: '40px 30px', borderRadius: '16px', boxShadow: 'var(--shadow-md)' }}>
+          <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#fee2e2', color: '#dc2626', display: 'grid', placeItems: 'center', fontSize: '26px', margin: '0 auto 16px', fontWeight: 700 }}>
+            !
+          </div>
+          <h2 style={{ fontSize: '22px', margin: '0 0 10px', color: '#991b1b' }}>Truy cập bị từ chối</h2>
+          <p style={{ color: 'var(--muted)', fontSize: '14.5px', lineHeight: 1.6, margin: '0 0 24px' }}>
+            Tài khoản hiện tại ({currentUser.username}) không có quyền quản trị. Chỉ Quản trị viên (Admin) và Quản lý phòng khám (Manager) mới được phép quản lý tài khoản, phân quyền gán vai trò và xem nhật ký truy cập hồ sơ.
+          </p>
+          <Link className="btn btn-secondary" to="/trang-chu" style={{ width: '100%', display: 'inline-block', boxSizing: 'border-box' }}>
+            Quay lại trang chủ
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ background: '#f8fafb', minHeight: '85vh', padding: '40px 0' }}>
@@ -345,17 +411,38 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                        <button
-                          className={`btn btn-sm ${acc.isActive ? 'btn-outline' : 'btn-primary'}`}
-                          style={{
-                            padding: '5px 12px',
-                            borderColor: acc.isActive ? '#e02424' : 'var(--primary)',
-                            color: acc.isActive ? '#e02424' : '#ffffff',
-                          }}
-                          onClick={() => handleToggleStatus(acc)}
-                        >
-                          {acc.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                        </button>
+                        {(() => {
+                          const isSelf = currentUser?.id === acc.id
+                          const isCurrentManagerOnly = Boolean(
+                            currentUser?.roles?.some((r) => r.toLowerCase() === 'manager') &&
+                            !currentUser?.roles?.some((r) => r.toLowerCase() === 'admin')
+                          )
+                          const isTargetAdmin = acc.roles?.some((r) => r.toLowerCase() === 'admin')
+                          const cannotLock = acc.isActive && (isSelf || (isCurrentManagerOnly && isTargetAdmin))
+                          const disabledTitle = isSelf
+                            ? 'Không thể tự khóa tài khoản của chính mình'
+                            : isCurrentManagerOnly && isTargetAdmin
+                            ? 'Quản lý không có quyền khóa tài khoản của Quản trị viên'
+                            : ''
+
+                          return (
+                            <button
+                              className={`btn btn-sm ${acc.isActive ? 'btn-outline' : 'btn-primary'}`}
+                              style={{
+                                padding: '5px 12px',
+                                borderColor: cannotLock ? 'var(--border)' : acc.isActive ? '#e02424' : 'var(--primary)',
+                                color: cannotLock ? 'var(--muted)' : acc.isActive ? '#e02424' : '#ffffff',
+                                opacity: cannotLock ? 0.6 : 1,
+                                cursor: cannotLock ? 'not-allowed' : 'pointer',
+                              }}
+                              disabled={cannotLock}
+                              title={disabledTitle}
+                              onClick={() => handleToggleStatus(acc)}
+                            >
+                              {acc.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                            </button>
+                          )
+                        })()}
                       </td>
                     </tr>
                   ))}

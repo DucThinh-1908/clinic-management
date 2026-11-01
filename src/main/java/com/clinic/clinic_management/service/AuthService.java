@@ -206,4 +206,26 @@ public class AuthService {
         summary.setPermissions(permissionCodes);
         return summary;
     }
+
+    public boolean isAdminOrManager(Long userId) {
+        if (userId == null) return false;
+        return userRepository.findById(userId)
+                .map(u -> u.getRoles() != null && u.getRoles().stream()
+                        .anyMatch(r -> "admin".equalsIgnoreCase(r.getCode()) || "manager".equalsIgnoreCase(r.getCode())))
+                .orElse(false);
+    }
+
+    public void validateAdminOrManager(Long userId) {
+        if (userId == null) {
+            throw new SecurityException("Yêu cầu quyền quản trị: Bạn cần đăng nhập tài khoản Quản trị viên hoặc Quản lý phòng khám.");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new SecurityException("Không tìm thấy thông tin tài khoản người thực hiện."));
+        boolean authorized = user.getRoles() != null && user.getRoles().stream()
+                .anyMatch(r -> "admin".equalsIgnoreCase(r.getCode()) || "manager".equalsIgnoreCase(r.getCode()));
+        if (!authorized) {
+            throw new SecurityException("Truy cập bị từ chối: Chỉ quản trị viên (Admin) và Quản lý phòng khám (Manager) mới có quyền quản lý tài khoản, phân quyền gán vai trò và xem nhật ký truy cập hồ sơ.");
+        }
+    }
 }
+

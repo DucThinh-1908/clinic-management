@@ -143,6 +143,16 @@ class ClinicManagementApplicationTests {
 	@Test
 	@Order(8)
 	void testUcTk05AccountManagement() {
+		// Verify non-admin/manager cannot create account
+		CreateAccountRequest unauthorizedReq = new CreateAccountRequest();
+		unauthorizedReq.setUsername("unauth_user");
+		assertThrows(SecurityException.class, () -> {
+			accountManagementService.createAccount(unauthorizedReq, 9L, "127.0.0.1"); // user 9 is patient
+		}, "Benh nhan khong duoc phep tao tai khoan");
+
+		// Verify manager (user 2) can view accounts
+		assertDoesNotThrow(() -> accountManagementService.getAllAccounts(2L), "Manager co the xem danh sach tai khoan");
+
 		String testUsername = "test_user_" + System.currentTimeMillis();
 		CreateAccountRequest createReq = new CreateAccountRequest();
 		createReq.setUsername(testUsername);
@@ -163,6 +173,23 @@ class ClinicManagementApplicationTests {
 		LoginResponse loginRes = authService.login(new LoginRequest(testUsername, "password123"), "127.0.0.1");
 		assertFalse(loginRes.isSuccess(), "Tai khoan bi khoa khong duoc phep dang nhap");
 
+		// Verify manager (user 2) cannot lock admin (user 1)
+		IllegalArgumentException ex1 = assertThrows(IllegalArgumentException.class, () -> {
+			accountManagementService.toggleAccountStatus(1L, false, "Thu khoa admin", 2L, "127.0.0.1");
+		});
+		assertTrue(ex1.getMessage().contains("Quản lý không có quyền khóa tài khoản của Quản trị viên"));
+
+		// Verify manager (user 2) cannot lock themselves
+		IllegalArgumentException ex2 = assertThrows(IllegalArgumentException.class, () -> {
+			accountManagementService.toggleAccountStatus(2L, false, "Thu tu khoa", 2L, "127.0.0.1");
+		});
+		assertTrue(ex2.getMessage().contains("Bạn không thể tự khóa tài khoản"));
+
+		// Verify admin (user 1) cannot self-lock
+		assertThrows(IllegalArgumentException.class, () -> {
+			accountManagementService.toggleAccountStatus(1L, false, "Thu tu khoa admin", 1L, "127.0.0.1");
+		});
+
 		// Test unlock account
 		UserSummary unlocked = accountManagementService.toggleAccountStatus(created.getId(), true, "Da xac minh mo lai", 1L, "127.0.0.1");
 		assertTrue(unlocked.getIsActive(), "Tai khoan phai duoc mo khoa thanh cong");
@@ -175,9 +202,14 @@ class ClinicManagementApplicationTests {
 		List<Role> roles = rolePermissionService.getAllRoles();
 		assertFalse(roles.isEmpty(), "Danh sach vai tro khong duoc rong");
 
-		// Assign multiple roles to user 9 (patient_nam)
-		UserSummary userSummary = rolePermissionService.assignRolesToUser(9L, Set.of("patient", "receptionist"), 1L, "127.0.0.1");
-		assertTrue(userSummary.getRoles().contains("receptionist"), "Nguoi dung phai duoc gan vai tro moi");
+		// Verify non-admin/manager cannot assign roles
+		assertThrows(SecurityException.class, () -> {
+			rolePermissionService.assignRolesToUser(9L, Set.of("doctor"), 9L, "127.0.0.1");
+		}, "Benh nhan khong duoc phep gan vai tro");
+
+		// Manager (user 2) or Admin (user 1) can assign roles
+		UserSummary userSummary = rolePermissionService.assignRolesToUser(9L, Set.of("patient", "receptionist"), 2L, "127.0.0.1");
+		assertTrue(userSummary.getRoles().contains("receptionist"), "Manager co the gan vai tro moi cho nguoi dung");
 
 		// Revert role to patient
 		rolePermissionService.assignRolesToUser(9L, Set.of("patient"), 1L, "127.0.0.1");
@@ -198,10 +230,15 @@ class ClinicManagementApplicationTests {
 		MedicalRecordAccessLogResponse logged = recordAccessLogService.logRecordAccess(request, "192.168.1.150");
 		assertNotNull(logged.getId(), "Ban ghi audit log phai duoc luu");
 
-		// Retrieve all access logs
-		List<MedicalRecordAccessLogResponse> logs = recordAccessLogService.getMedicalRecordAccessLogs();
-		assertFalse(logs.isEmpty(), "Danh sach nhat ky truy cap ho so phai co du lieu");
-		assertTrue(logs.stream().anyMatch(l -> "HSBA-2026-TEST".equals(l.getRecordCode())),
+		// Verify patient cannot view access logs
+		assertThrows(SecurityException.class, () -> {
+			recordAccessLogService.getMedicalRecordAccessLogs(9L);
+		}, "Benh nhan khong duoc phep xem nhat ky truy cap ho so");
+
+		// Manager (user 2) and Admin (user 1) can view access logs
+		List<MedicalRecordAccessLogResponse> managerLogs = recordAccessLogService.getMedicalRecordAccessLogs(2L);
+		assertFalse(managerLogs.isEmpty(), "Manager co the xem danh sach nhat ky truy cap ho so");
+		assertTrue(managerLogs.stream().anyMatch(l -> "HSBA-2026-TEST".equals(l.getRecordCode())),
 				"Nhat ky vua tao phai xuat hien trong danh sach");
 	}
 }

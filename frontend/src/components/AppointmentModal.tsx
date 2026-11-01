@@ -1,27 +1,86 @@
-import React, { useState } from 'react'
-import type { AppointmentFormData } from '../types'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import type { AppointmentFormData, AuthUser } from '../types'
 
 interface AppointmentModalProps {
   isOpen: boolean
   onClose: () => void
   initialSpecialty?: string
+  currentUser?: AuthUser | null
 }
 
 export const AppointmentModal: React.FC<AppointmentModalProps> = ({
   isOpen,
   onClose,
   initialSpecialty = '',
+  currentUser,
 }) => {
   const [formData, setFormData] = useState<AppointmentFormData>({
-    fullName: '',
-    phone: '',
+    fullName: currentUser?.username || '',
+    phone: currentUser?.phone || '',
     specialty: initialSpecialty,
     date: new Date().toISOString().split('T')[0],
     note: '',
   })
   const [submitted, setSubmitted] = useState(false)
 
+  useEffect(() => {
+    if (currentUser) {
+      setFormData((prev) => ({
+        ...prev,
+        fullName: prev.fullName || currentUser.username,
+        phone: prev.phone || currentUser.phone || '',
+      }))
+    }
+  }, [currentUser, isOpen])
+
   if (!isOpen) return null
+
+  // Require login before booking appointment
+  if (!currentUser) {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+          <button className="modal-close" onClick={onClose} aria-label="Close modal">
+            X
+          </button>
+
+          <div style={{ textAlign: 'center', padding: '24px 10px' }}>
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: '#fff8e1',
+                color: '#b78103',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: '28px',
+                fontWeight: 'bold',
+                margin: '0 auto 16px',
+              }}
+            >
+              !
+            </div>
+            <h3 style={{ margin: '0 0 10px', fontSize: '22px', color: 'var(--ink)' }}>
+              Yêu cầu đăng nhập
+            </h3>
+            <p style={{ color: 'var(--muted)', fontSize: '14.5px', lineHeight: 1.6, margin: '0 0 24px' }}>
+              Quý khách cần đăng nhập tài khoản vào hệ thống trước khi đăng ký lịch khám bệnh.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button type="button" className="btn btn-light" onClick={onClose} style={{ flex: 1 }}>
+                Để sau
+              </button>
+              <Link to="/dang-nhap" className="btn btn-primary" onClick={onClose} style={{ flex: 1.5, textAlign: 'center' }}>
+                Đăng nhập ngay
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,13 +96,13 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose} aria-label="Close modal">
-          ✕
+          X
         </button>
 
         {submitted ? (
           <div style={{ textAlign: 'center', padding: '24px 10px' }}>
             <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#e8f5e9', color: '#2e7d32', display: 'grid', placeItems: 'center', fontSize: '32px', margin: '0 auto 16px' }}>
-              ✓
+              OK
             </div>
             <h3 style={{ margin: '0 0 8px', fontSize: '22px', color: 'var(--ink)' }}>
               Đăng ký thành công!
@@ -58,7 +117,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({
               <span className="eyebrow">Đặt lịch trực tuyến</span>
               <h2 style={{ margin: '0 0 6px', fontSize: '22px' }}>Đăng ký khám sức khỏe</h2>
               <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-                Vui lòng điền thông tin bên dưới để được ưu tiên xếp số khám đúng giờ.
+                Tài khoản đặt lịch: <strong>{currentUser.username}</strong> ({currentUser.email || currentUser.phone || 'Thành viên'})
               </p>
             </div>
 

@@ -144,6 +144,7 @@ function App() {
           isOpen={modalOpen}
           onClose={handleCloseAppointment}
           initialSpecialty={selectedSpecialty}
+          currentUser={currentUser}
         />
 
         {/* Modal Đổi mật khẩu */}

@@ -94,8 +94,6 @@ function App() {
                 <HomePage
                   onOpenAppointment={handleOpenAppointment}
                   currentUser={currentUser}
-                  onOpenChangePassword={() => setChangePasswordOpen(true)}
-                  onLogout={handleLogout}
                 />
               }
             />
@@ -105,8 +103,6 @@ function App() {
                 <HomePage
                   onOpenAppointment={handleOpenAppointment}
                   currentUser={currentUser}
-                  onOpenChangePassword={() => setChangePasswordOpen(true)}
-                  onLogout={handleLogout}
                 />
               }
             />

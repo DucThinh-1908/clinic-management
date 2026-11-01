@@ -43,8 +43,16 @@ public class AccountManagementService {
                 .collect(Collectors.toList());
     }
 
+    public List<UserSummary> getAllAccounts(Long requesterId) {
+        if (requesterId != null) {
+            authService.validateAdminOrManager(requesterId);
+        }
+        return getAllAccounts();
+    }
+
     @Transactional
     public UserSummary createAccount(CreateAccountRequest request, Long adminId, String ipAddress) {
+        authService.validateAdminOrManager(adminId);
         if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
             throw new IllegalArgumentException("Tên đăng nhập không được để trống.");
         }
@@ -93,12 +101,39 @@ public class AccountManagementService {
 
     @Transactional
     public UserSummary toggleAccountStatus(Long userId, Boolean isActive, String reason, Long adminId, String ipAddress) {
+        authService.validateAdminOrManager(adminId);
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
             throw new IllegalArgumentException("Không tìm thấy tài khoản với ID: " + userId);
         }
 
         User user = userOpt.get();
+
+        // Kiểm tra ràng buộc khi khóa tài khoản
+        if (Boolean.FALSE.equals(isActive)) {
+            // 1. Không thể tự khóa tài khoản của chính mình
+            if (adminId != null && adminId.equals(userId)) {
+                throw new IllegalArgumentException("Bạn không thể tự khóa tài khoản của chính mình.");
+            }
+
+            // 2. Manager không có quyền khóa tài khoản của Admin
+            if (adminId != null) {
+                User requester = userRepository.findById(adminId).orElse(null);
+                if (requester != null && requester.getRoles() != null) {
+                    boolean requesterIsManager = requester.getRoles().stream()
+                            .anyMatch(r -> "manager".equalsIgnoreCase(r.getCode()))
+                            && requester.getRoles().stream().noneMatch(r -> "admin".equalsIgnoreCase(r.getCode()));
+
+                    boolean targetIsAdmin = user.getRoles() != null && user.getRoles().stream()
+                            .anyMatch(r -> "admin".equalsIgnoreCase(r.getCode()));
+
+                    if (requesterIsManager && targetIsAdmin) {
+                        throw new IllegalArgumentException("Quản lý không có quyền khóa tài khoản của Quản trị viên (Admin).");
+                    }
+                }
+            }
+        }
+
         user.setIsActive(isActive);
         user.setUpdatedAt(LocalDateTime.now());
         User updated = userRepository.save(user);

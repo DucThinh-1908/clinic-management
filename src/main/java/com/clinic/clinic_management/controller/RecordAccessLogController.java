@@ -18,8 +18,15 @@ public class RecordAccessLogController {
     private RecordAccessLogService recordAccessLogService;
 
     @GetMapping("/medical-records")
-    public ResponseEntity<List<MedicalRecordAccessLogResponse>> getMedicalRecordAccessLogs() {
-        return ResponseEntity.ok(recordAccessLogService.getMedicalRecordAccessLogs());
+    public ResponseEntity<?> getMedicalRecordAccessLogs(@RequestParam(required = false) Long requesterId) {
+        try {
+            return ResponseEntity.ok(recordAccessLogService.getMedicalRecordAccessLogs(requesterId));
+        } catch (SecurityException e) {
+            java.util.Map<String, Object> err = new java.util.HashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(err);
+        }
     }
 
     @PostMapping("/medical-records")

@@ -23,13 +23,27 @@ public class RolePermissionController {
     private RolePermissionService rolePermissionService;
 
     @GetMapping("/roles")
-    public ResponseEntity<List<Role>> getAllRoles() {
-        return ResponseEntity.ok(rolePermissionService.getAllRoles());
+    public ResponseEntity<?> getAllRoles(@RequestParam(required = false) Long requesterId) {
+        try {
+            return ResponseEntity.ok(rolePermissionService.getAllRoles(requesterId));
+        } catch (SecurityException e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(err);
+        }
     }
 
     @GetMapping("/permissions")
-    public ResponseEntity<List<Permission>> getAllPermissions() {
-        return ResponseEntity.ok(rolePermissionService.getAllPermissions());
+    public ResponseEntity<?> getAllPermissions(@RequestParam(required = false) Long requesterId) {
+        try {
+            return ResponseEntity.ok(rolePermissionService.getAllPermissions(requesterId));
+        } catch (SecurityException e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(err);
+        }
     }
 
     @PutMapping("/users/{userId}/roles")
@@ -42,6 +56,11 @@ public class RolePermissionController {
             String ipAddress = servletRequest.getRemoteAddr();
             UserSummary updated = rolePermissionService.assignRolesToUser(userId, request.getRoleCodes(), adminId, ipAddress);
             return ResponseEntity.ok(updated);
+        } catch (SecurityException e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(err);
         } catch (IllegalArgumentException e) {
             Map<String, Object> err = new HashMap<>();
             err.put("success", false);
@@ -60,6 +79,11 @@ public class RolePermissionController {
             String ipAddress = servletRequest.getRemoteAddr();
             Role updated = rolePermissionService.assignPermissionsToRole(roleId, request.getPermissionCodes(), adminId, ipAddress);
             return ResponseEntity.ok(updated);
+        } catch (SecurityException e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(err);
         } catch (IllegalArgumentException e) {
             Map<String, Object> err = new HashMap<>();
             err.put("success", false);

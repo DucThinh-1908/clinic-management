@@ -25,7 +25,17 @@ public class RecordAccessLogService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private AuthService authService;
+
     public List<MedicalRecordAccessLogResponse> getMedicalRecordAccessLogs() {
+        return getMedicalRecordAccessLogs(null);
+    }
+
+    public List<MedicalRecordAccessLogResponse> getMedicalRecordAccessLogs(Long requesterId) {
+        if (requesterId != null) {
+            authService.validateAdminOrManager(requesterId);
+        }
         List<AuditLog> logs = auditLogRepository.findByEntityNameOrderByCreatedAtDesc("medical_records");
         List<MedicalRecordAccessLogResponse> responses = new ArrayList<>();
 

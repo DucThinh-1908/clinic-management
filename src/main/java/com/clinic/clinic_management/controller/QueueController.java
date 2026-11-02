@@ -102,13 +102,15 @@ public class QueueController {
     /**
      * UC-TD05: Gọi bệnh nhân vào khám theo mã phiếu (Bác sĩ, Điều dưỡng)
      */
-    @PutMapping("/{ticketId}/call")
+    @RequestMapping(value = {"/{ticketId}/call", "/call/{ticketId}"}, method = {RequestMethod.PUT, RequestMethod.POST})
     public ResponseEntity<?> callPatientByTicketId(
             @PathVariable Long ticketId,
-            @RequestParam(required = false) Long userId
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long doctorId
     ) {
         try {
-            QueueTicketResponse res = queueService.callNextPatient(null, ticketId, userId);
+            Long staffUserId = userId != null ? userId : doctorId;
+            QueueTicketResponse res = queueService.callNextPatient(null, ticketId, staffUserId);
             return ResponseEntity.ok(res);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -120,13 +122,15 @@ public class QueueController {
     /**
      * UC-TD05: Gọi bệnh nhân tiếp theo trong hàng chờ của phòng khám (Bác sĩ, Điều dưỡng)
      */
-    @PutMapping("/room/{roomId}/call-next")
+    @RequestMapping(value = {"/room/{roomId}/call-next", "/call-next/{roomId}"}, method = {RequestMethod.PUT, RequestMethod.POST})
     public ResponseEntity<?> callNextPatientInRoom(
             @PathVariable Long roomId,
-            @RequestParam(required = false) Long userId
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long doctorId
     ) {
         try {
-            QueueTicketResponse res = queueService.callNextPatient(roomId, null, userId);
+            Long staffUserId = userId != null ? userId : doctorId;
+            QueueTicketResponse res = queueService.callNextPatient(roomId, null, staffUserId);
             return ResponseEntity.ok(res);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -138,13 +142,15 @@ public class QueueController {
     /**
      * Bác sĩ bắt đầu vào khám (SERVING)
      */
-    @PutMapping("/{ticketId}/start")
+    @RequestMapping(value = {"/{ticketId}/start", "/serve/{ticketId}"}, method = {RequestMethod.PUT, RequestMethod.POST})
     public ResponseEntity<?> startServing(
             @PathVariable Long ticketId,
-            @RequestParam(required = false) Long userId
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long doctorId
     ) {
         try {
-            QueueTicketResponse res = queueService.startServing(ticketId, userId);
+            Long staffUserId = userId != null ? userId : doctorId;
+            QueueTicketResponse res = queueService.startServing(ticketId, staffUserId);
             return ResponseEntity.ok(res);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));

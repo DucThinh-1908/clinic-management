@@ -366,7 +366,7 @@ CREATE TABLE medical_records (
     history_of_present_illness TEXT COMMENT 'Bệnh sử chi tiết',
     physical_examination TEXT COMMENT 'Khám lâm sàng các cơ quan',
     initial_diagnosis VARCHAR(255) COMMENT 'Chẩn đoán sơ bộ',
-    final_diagnosis VARCHAR(255) NOT NULL COMMENT 'Chẩn đoán xác định',
+    final_diagnosis VARCHAR(255) NULL COMMENT 'Chẩn đoán xác định',
     icd10_code VARCHAR(20) COMMENT 'Mã bệnh quốc tế ICD-10',
     doctor_advice TEXT COMMENT 'Lời dặn dò chế độ dinh dưỡng, sinh hoạt',
     follow_up_date DATE COMMENT 'Ngày hẹn tái khám',

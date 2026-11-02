@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       currentUser.roles.some((r) => r.toLowerCase() === 'doctor')
   )
 
-  const brandDestination = isStaff ? (canManage ? '/admin/tai-khoan' : '/quan-ly-benh-nhan') : '/'
+  const brandDestination = isStaff ? (isDoctor ? '/kham-benh' : canManage ? '/admin/tai-khoan' : '/quan-ly-benh-nhan') : '/'
 
   const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
     color: isActive ? 'var(--primary)' : 'var(--ink)',
@@ -114,6 +114,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           ) : (
             <>
+              <NavLink
+                to="/kham-benh"
+                style={({ isActive }) => ({
+                  color: isActive ? '#065f46' : '#059669',
+                  fontWeight: 700,
+                  background: isActive ? '#d1fae5' : '#ecfdf5',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid #a7f3d0',
+                  transition: 'all 0.2s',
+                })}
+              >
+                Khám bệnh lâm sàng
+              </NavLink>
               <NavLink
                 to="/tiep-don-xep-hang"
                 style={({ isActive }) => ({
@@ -536,6 +550,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           ) : (
             <>
+              <Link to="/kham-benh" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#059669' }}>
+                Khám bệnh lâm sàng
+              </Link>
               <Link to="/tiep-don-xep-hang" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#0369a1' }}>
                 Tiếp đón & Hàng chờ
               </Link>

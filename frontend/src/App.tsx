@@ -17,6 +17,7 @@ import { PatientManagementPage } from './pages/PatientManagementPage'
 import { StaffSchedulingPage } from './pages/StaffSchedulingPage'
 import { AppointmentManagementPage } from './pages/AppointmentManagementPage'
 import { ReceptionQueuePage } from './pages/ReceptionQueuePage'
+import { MedicalExaminationPage } from './pages/MedicalExaminationPage'
 import type { AuthUser } from './types'
 import './App.css'
 
@@ -91,7 +92,8 @@ function App() {
     if (!user || !user.roles) return '/'
     const roles = user.roles.map((r) => r.toLowerCase())
     if (roles.includes('admin') || roles.includes('manager')) return '/admin/tai-khoan'
-    if (roles.includes('receptionist')) return '/lich-hen'
+    if (roles.includes('doctor') || roles.includes('nurse')) return '/kham-benh'
+    if (roles.includes('receptionist')) return '/tiep-don'
     return '/quan-ly-benh-nhan'
   }
 
@@ -241,6 +243,12 @@ function App() {
             <Route path="/hang-cho" element={<ReceptionQueuePage currentUser={currentUser} />} />
             <Route path="/tiep-don-xep-hang" element={<ReceptionQueuePage currentUser={currentUser} />} />
             <Route path="/man-hinh-goi-so" element={<ReceptionQueuePage currentUser={currentUser} />} />
+
+            {/* Khám bệnh lâm sàng & Cận lâm sàng (Module 3.6 - 8 Use Cases) */}
+            <Route path="/kham-benh" element={<MedicalExaminationPage currentUser={currentUser} />} />
+            <Route path="/phong-kham-bac-si" element={<MedicalExaminationPage currentUser={currentUser} />} />
+            <Route path="/phong-kham" element={<MedicalExaminationPage currentUser={currentUser} />} />
+            <Route path="/ghi-nhan-sinh-hieu" element={<MedicalExaminationPage currentUser={currentUser} />} />
           </Routes>
         </main>
 

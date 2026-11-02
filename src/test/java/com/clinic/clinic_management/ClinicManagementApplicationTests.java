@@ -51,6 +51,12 @@ class ClinicManagementApplicationTests {
 	@Autowired
 	private AppointmentService appointmentService;
 
+	@Autowired
+	private com.clinic.clinic_management.service.QueueService queueService;
+
+	@Autowired
+	private com.clinic.clinic_management.repository.QueueTicketRepository queueTicketRepository;
+
 	@Test
 	@Order(1)
 	void contextLoads() {
@@ -885,5 +891,162 @@ class ClinicManagementApplicationTests {
 		assertThrows(IllegalArgumentException.class, () -> {
 			appointmentService.rescheduleAppointment(booked.getId(), reschedReq, 3L);
 		}, "Lich hen da huy do vang mat khong the doi gio");
+	}
+
+	// UC-TD01: Check-in benh nhan co lich hen (Le tan)
+	@Test
+	@Order(33)
+	void testUcTd01CheckInAppointment() {
+		java.time.LocalDate today = java.time.LocalDate.now();
+		appointmentRepository.findByDoctorIdAndAppointmentDateOrderByAppointmentTimeAsc(2L, today)
+				.forEach(app -> {
+					queueTicketRepository.findByAppointmentId(app.getId()).ifPresent(queueTicketRepository::delete);
+					appointmentRepository.delete(app);
+				});
+
+		com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest appReq = new com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest();
+		appReq.setDoctorId(2L);
+		appReq.setPatientId(1L);
+		appReq.setAppointmentDate(today);
+		appReq.setAppointmentTime(java.time.LocalTime.of(8, 30));
+		appReq.setSymptomsSummary("Kham suc khoe dinh ky");
+
+		var booked = appointmentService.bookAppointment(appReq, 1L);
+		assertNotNull(booked);
+
+		// Check-in
+		com.clinic.clinic_management.dto.QueueDtos.CheckInAppointmentRequest checkInReq = new com.clinic.clinic_management.dto.QueueDtos.CheckInAppointmentRequest();
+		checkInReq.setAppointmentId(booked.getId());
+		checkInReq.setRoomId(1L); // P101
+		checkInReq.setPriority("PRIORITY");
+		checkInReq.setNotes("Benh nhan den dung gio");
+
+		var ticket = queueService.checkInAppointment(checkInReq, 3L);
+		assertNotNull(ticket);
+		assertEquals("WAITING", ticket.getStatus());
+		assertTrue(ticket.getAppointment());
+		assertNotNull(ticket.getTicketCode());
+		assertEquals(1L, ticket.getRoomId());
+
+		// Verify appointment status updated to CHECKED_IN
+		var checkedAppointment = appointmentService.getAppointmentById(booked.getId());
+		assertEquals("CHECKED_IN", checkedAppointment.getStatus());
+	}
+
+	// UC-TD02: Tiep nhan benh nhan vang lai (Le tan)
+	@Test
+	@Order(34)
+	void testUcTd02ReceptionWalkIn() {
+		com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest walkInReq = new com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest();
+		String randPhone = "09" + (int)(Math.random() * 90000000 + 10000000);
+		walkInReq.setFullName("Benh Nhan Vang Lai Test");
+		walkInReq.setPhone(randPhone);
+		walkInReq.setDateOfBirth(java.time.LocalDate.of(1995, 5, 20));
+		walkInReq.setGender("FEMALE");
+		walkInReq.setRoomId(2L); // P102 Nhi
+		walkInReq.setServiceType("Kham nhi tong quat");
+		walkInReq.setPriority("NORMAL");
+		walkInReq.setNotes("Sot nhe 2 ngay");
+
+		var ticket = queueService.receptionWalkIn(walkInReq, 3L);
+		assertNotNull(ticket);
+		assertNotNull(ticket.getTicketCode());
+		assertEquals(2L, ticket.getRoomId());
+		assertFalse(ticket.getAppointment());
+		assertEquals("WAITING", ticket.getStatus());
+		assertEquals("Benh Nhan Vang Lai Test", ticket.getPatientName());
+	}
+
+	// UC-TD03: Cap so thu tu (Le tan, He thong)
+	@Test
+	@Order(35)
+	void testUcTd03IssueTicketNumberIncrement() {
+		com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest req1 = new com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest();
+		req1.setFullName("BN Thu Tu 1");
+		req1.setPhone("09" + (int)(Math.random() * 90000000 + 10000000));
+		req1.setRoomId(1L);
+
+		var t1 = queueService.receptionWalkIn(req1, 3L);
+
+		com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest req2 = new com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest();
+		req2.setFullName("BN Thu Tu 2");
+		req2.setPhone("09" + (int)(Math.random() * 90000000 + 10000000));
+		req2.setRoomId(1L);
+
+		var t2 = queueService.receptionWalkIn(req2, 3L);
+
+		assertTrue(t2.getTicketNumber() > t1.getTicketNumber(), "STT phai tang dan trong cung phong kham");
+	}
+
+	// UC-TD04: Xem hang cho theo phong kham (Le tan, Bac si, Dieu duong)
+	@Test
+	@Order(36)
+	void testUcTd04ViewQueueAndOverview() {
+		// View queue for room 1
+		var queue = queueService.getQueueByRoom(1L, java.time.LocalDate.now(), null);
+		assertNotNull(queue);
+
+		// View overview for all rooms
+		var overview = queueService.getRoomQueueOverview(java.time.LocalDate.now());
+		assertNotNull(overview);
+		assertFalse(overview.isEmpty());
+
+		// View overall stats
+		var stats = queueService.getQueueStats(java.time.LocalDate.now());
+		assertNotNull(stats);
+		assertTrue(stats.getTotalTickets() > 0);
+	}
+
+	// UC-TD05: Goi benh nhan vao kham (Bac si, Dieu duong)
+	@Test
+	@Order(37)
+	void testUcTd05CallServeAndCompletePatient() {
+		// Create a walk-in patient in room 1
+		com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest req = new com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest();
+		req.setFullName("Benh Nhan Cho Goi");
+		req.setPhone("09" + (int)(Math.random() * 90000000 + 10000000));
+		req.setRoomId(1L);
+		var created = queueService.receptionWalkIn(req, 3L);
+
+		// 1. Doctor / Nurse calls the patient
+		var called = queueService.callNextPatient(1L, created.getId(), 2L);
+		assertEquals("CALLED", called.getStatus());
+		assertEquals(1, called.getCallCount());
+		assertNotNull(called.getCalledAt());
+
+		// 2. Doctor starts serving
+		var serving = queueService.startServing(created.getId(), 2L);
+		assertEquals("SERVING", serving.getStatus());
+		assertNotNull(serving.getServingAt());
+
+		// 3. Complete serving
+		var completed = queueService.completeServing(created.getId(), 2L);
+		assertEquals("COMPLETED", completed.getStatus());
+		assertNotNull(completed.getCompletedAt());
+	}
+
+	// UC-TD06: Chuyen benh nhan sang phong/bac si khac (Le tan)
+	@Test
+	@Order(38)
+	void testUcTd06TransferPatient() {
+		// Create a waiting ticket in room 1
+		com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest req = new com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest();
+		req.setFullName("Benh Nhan Chuyen Phong");
+		req.setPhone("09" + (int)(Math.random() * 90000000 + 10000000));
+		req.setRoomId(1L);
+		var created = queueService.receptionWalkIn(req, 3L);
+		assertEquals(1L, created.getRoomId());
+
+		// Transfer to room 2 (P102)
+		com.clinic.clinic_management.dto.QueueDtos.TransferRoomRequest transferReq = new com.clinic.clinic_management.dto.QueueDtos.TransferRoomRequest();
+		transferReq.setTargetRoomId(2L);
+		transferReq.setReason("Dieu phoi sang phong nhi giam tai");
+
+		var transferred = queueService.transferPatient(created.getId(), transferReq, 3L);
+		assertNotNull(transferred);
+		assertEquals(2L, transferred.getRoomId());
+		assertEquals(1L, transferred.getTransferredFromRoomId());
+		assertEquals("Dieu phoi sang phong nhi giam tai", transferred.getTransferReason());
+		assertEquals("WAITING", transferred.getStatus());
 	}
 }

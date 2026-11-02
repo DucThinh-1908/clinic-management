@@ -299,17 +299,30 @@ CREATE TABLE appointment_reminders (
 -- Bảng phiếu số thứ tự tiếp đón & hàng đợi phòng khám (Queue Tickets)
 CREATE TABLE queue_tickets (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ticket_code VARCHAR(50) NULL UNIQUE COMMENT 'Mã phiếu STT, ví dụ STT-20261102-001',
     patient_id BIGINT NOT NULL,
-    appointment_id BIGINT NULL,
-    room_id BIGINT NOT NULL,
-    ticket_number INT NOT NULL,
-    queue_date DATE NOT NULL,
+    appointment_id BIGINT NULL COMMENT 'Lịch hẹn tương ứng nếu là check-in hẹn trước',
+    room_id BIGINT NOT NULL COMMENT 'Phòng khám tiếp nhận',
+    doctor_id BIGINT NULL COMMENT 'Bác sĩ phụ trách phòng khám (nếu có)',
+    ticket_number INT NOT NULL COMMENT 'Số thứ tự trong ngày tại phòng khám (1, 2, 3...)',
+    priority ENUM('NORMAL', 'PRIORITY', 'EMERGENCY') DEFAULT 'NORMAL' COMMENT 'Ưu tiên: Bình thường, Ưu tiên (cao tuổi/trẻ em/hẹn trước), Cấp cứu',
+    is_appointment BOOLEAN DEFAULT FALSE COMMENT 'Đánh dấu có hẹn trước',
+    service_type VARCHAR(150) NULL COMMENT 'Loại hình khám / Chuyên khoa khám',
+    queue_date DATE NOT NULL COMMENT 'Ngày khám',
     status ENUM('WAITING', 'CALLED', 'SERVING', 'COMPLETED', 'SKIPPED') DEFAULT 'WAITING',
-    called_at TIMESTAMP NULL,
+    called_at TIMESTAMP NULL COMMENT 'Thời điểm gọi vào khám',
+    serving_at TIMESTAMP NULL COMMENT 'Thời điểm bắt đầu khám',
+    completed_at TIMESTAMP NULL COMMENT 'Thời điểm hoàn thành phiên khám',
+    transfer_reason VARCHAR(255) NULL COMMENT 'Lý do chuyển phòng khám (nếu có)',
+    transferred_from_room_id BIGINT NULL COMMENT 'Phòng khám cũ trước khi điều phối',
+    call_count INT DEFAULT 0 COMMENT 'Số lần đã bấm gọi số',
+    notes TEXT NULL COMMENT 'Ghi chú tiếp đón',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_q_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
-    CONSTRAINT fk_q_app FOREIGN KEY (appointment_id) REFERENCES appointments(id),
-    CONSTRAINT fk_q_room FOREIGN KEY (room_id) REFERENCES clinic_rooms(id)
+    CONSTRAINT fk_q_app FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
+    CONSTRAINT fk_q_room FOREIGN KEY (room_id) REFERENCES clinic_rooms(id),
+    CONSTRAINT fk_q_doc FOREIGN KEY (doctor_id) REFERENCES staff(id) ON DELETE SET NULL,
+    CONSTRAINT fk_q_transfer_room FOREIGN KEY (transferred_from_room_id) REFERENCES clinic_rooms(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------

@@ -107,7 +107,7 @@ public class StaffSchedulingController {
     // =========================================================================
     // UC-NS03: Quản lý chuyên khoa và phòng khám
     // =========================================================================
-    @GetMapping("/departments")
+    @GetMapping({"/departments", "/staff-scheduling/departments"})
     public ResponseEntity<?> getAllDepartments() {
         return ResponseEntity.ok(staffSchedulingService.getAllDepartments());
     }
@@ -153,7 +153,7 @@ public class StaffSchedulingController {
     }
 
     // Phòng khám (Clinic rooms)
-    @GetMapping("/rooms")
+    @GetMapping({"/rooms", "/staff-scheduling/rooms"})
     public ResponseEntity<?> getAllRooms(@RequestParam(required = false) Long departmentId) {
         return ResponseEntity.ok(staffSchedulingService.getAllRooms(departmentId));
     }

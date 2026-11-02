@@ -11,5 +11,9 @@ import java.util.Optional;
 public interface ClinicalServiceRepository extends JpaRepository<ClinicalService, Long> {
     List<ClinicalService> findByIsActiveTrue();
     List<ClinicalService> findByCategoryIdAndIsActiveTrue(Long categoryId);
+    List<ClinicalService> findByCategoryId(Long categoryId);
+    List<ClinicalService> findAllByOrderByIdAsc();
     Optional<ClinicalService> findByCode(String code);
+    Optional<ClinicalService> findByCodeIgnoreCase(String code);
+    boolean existsByCodeIgnoreCase(String code);
 }

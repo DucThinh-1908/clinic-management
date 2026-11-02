@@ -19,6 +19,7 @@ import { AppointmentManagementPage } from './pages/AppointmentManagementPage'
 import { ReceptionQueuePage } from './pages/ReceptionQueuePage'
 import { MedicalExaminationPage } from './pages/MedicalExaminationPage'
 import { PharmacyInventoryPage } from './pages/PharmacyInventoryPage'
+import { BillingPaymentPage } from './pages/BillingPaymentPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import type { AuthUser } from './types'
 import './App.css'
@@ -94,6 +95,7 @@ function App() {
     if (!user || !user.roles) return '/'
     const roles = user.roles.map((r) => r.toLowerCase())
     if (roles.includes('admin') || roles.includes('manager')) return '/admin/tai-khoan'
+    if (roles.includes('cashier')) return '/thu-ngan'
     if (roles.includes('pharmacist')) return '/kho-thuoc'
     if (roles.includes('doctor') || roles.includes('nurse')) return '/kham-benh'
     if (roles.includes('receptionist')) return '/tiep-don'
@@ -447,6 +449,48 @@ function App() {
               element={
                 <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
                   <PharmacyInventoryPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Phân hệ 3.9: Thanh toán và Viện phí (Thu ngân, Quản lý, Admin) */}
+            <Route
+              path="/thu-ngan"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                  <BillingPaymentPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vien-phi"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                  <BillingPaymentPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/thanh-toan"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                  <BillingPaymentPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hoa-don"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                  <BillingPaymentPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bang-gia-dich-vu"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                  <BillingPaymentPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
             />

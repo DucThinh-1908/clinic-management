@@ -66,6 +66,12 @@ class ClinicManagementApplicationTests {
 	@Autowired
 	private com.clinic.clinic_management.repository.PatientRepository patientRepository;
 
+	@Autowired
+	private com.clinic.clinic_management.service.BillingService billingService;
+
+	@Autowired
+	private com.clinic.clinic_management.controller.BillingController billingController;
+
 	@Test
 	@Order(1)
 	void contextLoads() {
@@ -1541,6 +1547,196 @@ class ClinicManagementApplicationTests {
 		assertNotNull(firstTx.getTransactionType());
 		assertNotNull(firstTx.getQuantity());
 		assertNotNull(firstTx.getTransactionDate());
+	}
+
+	// =========================================================================
+	// PHÂN HỆ 3.9: THANH TOÁN VÀ VIỆN PHÍ (7 USE CASES: UC-TT01 ĐẾN UC-TT07)
+	// =========================================================================
+
+	// UC-TT01: Lập hóa đơn từ phiên khám (Thu ngân)
+	@Test
+	@Order(57)
+	void testUcTt01CreateInvoiceFromMedicalRecord() {
+		com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest req =
+				new com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest();
+		req.setMedicalRecordId(1L);
+		req.setCashierId(7L); // Đỗ Thúy Hằng - TN001
+		req.setNote("Lập hóa đơn thanh toán phiên khám chuẩn");
+
+		var invoice = billingService.createInvoiceFromMedicalRecord(req);
+		assertNotNull(invoice);
+		assertNotNull(invoice.getInvoiceCode());
+		assertTrue(invoice.getInvoiceCode().startsWith("HD"));
+		assertEquals("UNPAID", invoice.getStatus());
+		assertNotNull(invoice.getItems());
+		assertFalse(invoice.getItems().isEmpty(), "Hóa đơn phải có danh sách các khoản mục phí");
+		assertTrue(invoice.getFinalAmount().compareTo(java.math.BigDecimal.ZERO) >= 0);
+	}
+
+	// UC-TT02: Áp dụng bảo hiểm y tế / giảm giá (Thu ngân)
+	@Test
+	@Order(58)
+	void testUcTt02ApplyInsuranceAndDiscount() {
+		// Tạo hóa đơn từ phiên khám 1
+		com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest cReq =
+				new com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest();
+		cReq.setMedicalRecordId(1L);
+		cReq.setCashierId(7L);
+		var invoice = billingService.createInvoiceFromMedicalRecord(cReq);
+
+		// Áp dụng BHYT 80% và giảm giá 50,000 VND
+		com.clinic.clinic_management.dto.BillingDtos.ApplyInsuranceDiscountRequest req =
+				new com.clinic.clinic_management.dto.BillingDtos.ApplyInsuranceDiscountRequest();
+		req.setInsuranceRate(java.math.BigDecimal.valueOf(80)); // 80% BHYT
+		req.setDiscountAmount(java.math.BigDecimal.valueOf(50000));
+		req.setDiscountReason("Voucher tri ân khách hàng thân thiết");
+
+		var updated = billingService.applyInsuranceAndDiscount(invoice.getId(), req);
+		assertNotNull(updated);
+		assertTrue(updated.getInsurancePaidAmount().compareTo(java.math.BigDecimal.ZERO) > 0);
+		assertEquals(0, updated.getDiscountAmount().compareTo(java.math.BigDecimal.valueOf(50000)));
+		assertTrue(updated.getFinalAmount().compareTo(invoice.getTotalServiceAmount().add(invoice.getTotalMedicineAmount())) < 0);
+	}
+
+	// UC-TT03: Thu tiền (tiền mặt, chuyển khoản, thẻ, ví) (Thu ngân)
+	@Test
+	@Order(59)
+	void testUcTt03ProcessPayment() {
+		// 1. Tạo hóa đơn
+		com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest cReq =
+				new com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest();
+		cReq.setMedicalRecordId(1L);
+		cReq.setCashierId(7L);
+		var invoice = billingService.createInvoiceFromMedicalRecord(cReq);
+
+		// 2. Thu tiền bằng Chuyển khoản QR
+		com.clinic.clinic_management.dto.BillingDtos.ProcessPaymentRequest pReq =
+				new com.clinic.clinic_management.dto.BillingDtos.ProcessPaymentRequest();
+		pReq.setInvoiceId(invoice.getId());
+		pReq.setCashierId(7L);
+		pReq.setAmount(invoice.getFinalAmount());
+		pReq.setPaymentMethod("BANK_TRANSFER");
+		pReq.setTransactionReference("VNPAY_QR_99881122");
+		pReq.setNote("Khách quét mã QR VietQR ngân hàng");
+
+		var paymentResult = billingService.processPayment(pReq);
+		assertNotNull(paymentResult);
+		assertTrue(paymentResult.isSuccess());
+		assertNotNull(paymentResult.getPaymentCode());
+		assertTrue(paymentResult.getPaymentCode().startsWith("TT"));
+
+		// 3. Kiểm tra hóa đơn đã chuyển trạng thái sang PAID
+		var reloaded = billingService.getInvoiceById(invoice.getId());
+		assertEquals("PAID", reloaded.getStatus());
+		assertFalse(reloaded.getPayments().isEmpty());
+	}
+
+	// UC-TT04: In / gửi hóa đơn (Thu ngân)
+	@Test
+	@Order(60)
+	void testUcTt04InvoicePrintAndEmail() {
+		// Tạo và thanh toán một hóa đơn
+		com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest cReq =
+				new com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest();
+		cReq.setMedicalRecordId(1L);
+		cReq.setCashierId(7L);
+		var invoice = billingService.createInvoiceFromMedicalRecord(cReq);
+
+		var printData = billingService.getInvoicePrintData(invoice.getId());
+		assertNotNull(printData);
+		assertNotNull(printData.getInvoiceCode());
+		assertNotNull(printData.getPatientName());
+		assertNotNull(printData.getAmountInWords(), "Hóa đơn in phải có số tiền viết bằng chữ tiếng Việt");
+		assertTrue(printData.getAmountInWords().endsWith("đồng chẵn"));
+
+		// Test gửi email hóa đơn điện tử
+		boolean emailSent = billingService.sendInvoiceEmail(invoice.getId(), "benhnhan@gmail.com");
+		assertTrue(emailSent);
+	}
+
+	// UC-TT05: Hoàn tiền / Hủy giao dịch (Thu ngân, Quản lý)
+	@Test
+	@Order(61)
+	void testUcTt05RefundOrCancelInvoice() {
+		// 1. Test hủy hóa đơn chưa thanh toán
+		com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest cReq =
+				new com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest();
+		cReq.setMedicalRecordId(1L);
+		cReq.setCashierId(7L);
+		var invoice = billingService.createInvoiceFromMedicalRecord(cReq);
+
+		com.clinic.clinic_management.dto.BillingDtos.RefundInvoiceRequest cancelReq =
+				new com.clinic.clinic_management.dto.BillingDtos.RefundInvoiceRequest();
+		cancelReq.setInvoiceId(invoice.getId());
+		cancelReq.setActorId(7L);
+		cancelReq.setReason("Bệnh nhân đổi lịch khám sang tuần sau");
+
+		var cancelled = billingService.refundOrCancelInvoice(cancelReq);
+		assertEquals("CANCELLED", cancelled.getStatus());
+
+		// 2. Test hoàn tiền cho hóa đơn đã thanh toán
+		com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest cReq2 =
+				new com.clinic.clinic_management.dto.BillingDtos.CreateInvoiceRequest();
+		cReq2.setMedicalRecordId(1L);
+		cReq2.setCashierId(7L);
+		var invoice2 = billingService.createInvoiceFromMedicalRecord(cReq2);
+
+		com.clinic.clinic_management.dto.BillingDtos.ProcessPaymentRequest pReq =
+				new com.clinic.clinic_management.dto.BillingDtos.ProcessPaymentRequest();
+		pReq.setInvoiceId(invoice2.getId());
+		pReq.setCashierId(7L);
+		pReq.setAmount(invoice2.getFinalAmount());
+		pReq.setPaymentMethod("CASH");
+		billingService.processPayment(pReq);
+
+		com.clinic.clinic_management.dto.BillingDtos.RefundInvoiceRequest refundReq =
+				new com.clinic.clinic_management.dto.BillingDtos.RefundInvoiceRequest();
+		refundReq.setInvoiceId(invoice2.getId());
+		refundReq.setActorId(7L);
+		refundReq.setReason("Bệnh nhân hủy dịch vụ siêu âm do có việc gấp");
+
+		var refunded = billingService.refundOrCancelInvoice(refundReq);
+		assertEquals("REFUNDED", refunded.getStatus());
+	}
+
+	// UC-TT06: Xem lịch sử giao dịch & Thống kê doanh thu (Thu ngân, Quản lý, Bệnh nhân)
+	@Test
+	@Order(62)
+	void testUcTt06GetInvoicesAndStats() {
+		var list = billingService.getInvoices(null, null, null, null);
+		assertNotNull(list);
+		assertFalse(list.isEmpty());
+
+		var stats = billingService.getBillingOverviewStats(null, null);
+		assertNotNull(stats);
+		assertNotNull(stats.getTotalRevenue());
+		assertTrue(stats.getPaidInvoiceCount() >= 0);
+	}
+
+	// UC-TT07: Quản lý bảng giá dịch vụ (Quản lý)
+	@Test
+	@Order(63)
+	void testUcTt07ManageServicePrices() {
+		// Thêm dịch vụ mới
+		com.clinic.clinic_management.dto.BillingDtos.SaveServicePriceRequest req =
+				new com.clinic.clinic_management.dto.BillingDtos.SaveServicePriceRequest();
+		req.setName("Nội soi dạ dày không đau (gây mê)");
+		req.setCode("SRV_ENDOSCOPY_" + (System.currentTimeMillis() % 10000));
+		req.setCategoryId(2L);
+		req.setPrice(java.math.BigDecimal.valueOf(1800000));
+		req.setInsuranceCovered(true);
+		req.setEstimatedDurationMinutes(30);
+		req.setDescription("Nội soi thực quản - dạ dày - tá tràng bằng ống mềm có an thần");
+
+		var saved = billingService.saveServicePrice(req);
+		assertNotNull(saved);
+		assertNotNull(saved.getId());
+		assertEquals("Nội soi dạ dày không đau (gây mê)", saved.getName());
+		assertEquals(0, saved.getPrice().compareTo(java.math.BigDecimal.valueOf(1800000)));
+
+		// Tra cứu danh sách bảng giá
+		var services = billingService.getAllServices(null, null);
+		assertFalse(services.isEmpty());
 	}
 }
 

@@ -42,7 +42,7 @@ public class MedicalRecord {
     @Column(name = "initial_diagnosis")
     private String initialDiagnosis;
 
-    @Column(name = "final_diagnosis", nullable = false)
+    @Column(name = "final_diagnosis")
     private String finalDiagnosis;
 
     @Column(name = "icd10_code", length = 20)

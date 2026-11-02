@@ -422,4 +422,141 @@ export interface SimpleRoomOption {
   isAvailable: boolean
 }
 
+// =============================================================================
+// PHÂN HỆ 3.6: KHÁM BỆNH (8 USE CASES)
+// =============================================================================
+
+export interface VitalSignItem {
+  id?: number
+  patientId: number
+  patientName?: string
+  nurseId?: number
+  nurseName?: string
+  temperature?: number
+  bloodPressureSystolic?: number
+  bloodPressureDiastolic?: number
+  heartRate?: number
+  respiratoryRate?: number
+  spo2?: number
+  weightKg?: number
+  heightCm?: number
+  bmi?: number
+  bmiCategory?: string
+  bloodPressureStatus?: string
+  temperatureStatus?: string
+  notes?: string
+  measuredAt?: string
+}
+
+export interface ServiceCategoryItem {
+  id: number
+  code: string
+  name: string
+}
+
+export interface ClinicalServiceItem {
+  id: number
+  categoryId: number
+  code: string
+  name: string
+  price: number
+  insuranceCovered?: boolean
+  estimatedDurationMinutes?: number
+  description?: string
+  isActive?: boolean
+}
+
+export interface LabResultItem {
+  id: number
+  labOrderId: number
+  serviceId: number
+  serviceCode?: string
+  serviceName?: string
+  categoryName?: string
+  price?: number
+  technicianId?: number
+  technicianName?: string
+  roomId?: number
+  roomName?: string
+  testValue?: string
+  referenceRange?: string
+  unit?: string
+  conclusion?: string
+  imageAttachmentUrl?: string
+  status: 'WAITING' | 'PROCESSING' | 'COMPLETED'
+  completedAt?: string
+}
+
+export interface LabOrderItem {
+  id: number
+  orderCode: string
+  medicalRecordId: number
+  doctorId: number
+  doctorName?: string
+  patientId: number
+  patientName?: string
+  diagnosisNote?: string
+  status: 'PENDING' | 'PAID' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED'
+  createdAt: string
+  items: LabResultItem[]
+}
+
+export interface MedicalRecordItem {
+  id: number
+  recordCode: string
+  patientId: number
+  patientName?: string
+  doctorId: number
+  doctorName?: string
+  roomId: number
+  roomName?: string
+  chiefComplaint: string
+  historyOfPresentIllness?: string
+  physicalExamination?: string
+  initialDiagnosis?: string
+  finalDiagnosis?: string
+  icd10Code?: string
+  doctorAdvice?: string
+  followUpDate?: string
+  status: 'IN_PROGRESS' | 'WAITING_PARACLINICAL' | 'COMPLETED'
+  createdAt: string
+  vitalSigns?: VitalSignItem
+  labOrders?: LabOrderItem[]
+}
+
+export interface MedicalSummaryPrintData {
+  clinicName: string
+  clinicAddress: string
+  clinicHotline: string
+  recordId: number
+  recordCode: string
+  examinationDate: string
+  roomName: string
+  departmentName: string
+  doctorName: string
+  doctorQualification: string
+  patientId: number
+  patientCode: string
+  patientName: string
+  gender: string
+  dateOfBirth?: string
+  age?: number
+  phone: string
+  address?: string
+  healthInsuranceNumber?: string
+  bloodGroup?: string
+  drugAllergies?: string
+  vitalSigns?: VitalSignItem
+  chiefComplaint: string
+  historyOfPresentIllness?: string
+  physicalExamination?: string
+  initialDiagnosis?: string
+  finalDiagnosis?: string
+  icd10Code?: string
+  labOrders?: LabOrderItem[]
+  doctorAdvice?: string
+  followUpDate?: string
+  status: string
+}
+
 

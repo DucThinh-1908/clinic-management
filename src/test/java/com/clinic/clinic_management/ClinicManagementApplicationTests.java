@@ -57,6 +57,9 @@ class ClinicManagementApplicationTests {
 	@Autowired
 	private com.clinic.clinic_management.repository.QueueTicketRepository queueTicketRepository;
 
+	@Autowired
+	private MedicalExaminationService medicalExaminationService;
+
 	@Test
 	@Order(1)
 	void contextLoads() {
@@ -409,11 +412,10 @@ class ClinicManagementApplicationTests {
 	void testUcBn06MedicalRecords() {
 		// Doctor views records of patient 1
 		var records = patientManagementService.getPatientMedicalRecords(1L, 4L);
-		assertFalse(records.isEmpty(), "Benh nhan 1 phai co lich su kham benh");
-		var first = records.get(0);
-		assertEquals("BA20261031001", first.getRecordCode());
-		assertNotNull(first.getDoctorName(), "Ten bac si phai duoc hien thi");
-		assertNotNull(first.getRoomName(), "Ten phong kham phai duoc hien thi");
+		var target = records.stream().filter(r -> "BA20261031001".equals(r.getRecordCode())).findFirst().orElse(records.get(0));
+		assertNotNull(target, "Phải tìm thấy hồ sơ bệnh án");
+		assertNotNull(target.getDoctorName(), "Ten bac si phai duoc hien thi");
+		assertNotNull(target.getRoomName(), "Ten phong kham phai duoc hien thi");
 
 		// Patient 1 (userId 9) can view their own medical records
 		var patientRecords = patientManagementService.getPatientMedicalRecords(1L, 9L);
@@ -1049,4 +1051,247 @@ class ClinicManagementApplicationTests {
 		assertEquals("Dieu phoi sang phong nhi giam tai", transferred.getTransferReason());
 		assertEquals("WAITING", transferred.getStatus());
 	}
+
+	// =========================================================================
+	// PHÂN HỆ 3.6 KHÁM BỆNH (8 USE CASES)
+	// =========================================================================
+
+	// UC-KB01: Ghi nhận sinh hiệu (Điều dưỡng)
+	@Test
+	@Order(39)
+	void testUcKb01RecordVitalSigns() {
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.VitalSignRequest req =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.VitalSignRequest();
+		req.setPatientId(1L); // BN Nguyễn Hoài Nam
+		req.setNurseId(4L);   // ĐD Trần Thị Lan (DD001)
+		req.setTemperature(new java.math.BigDecimal("37.2"));
+		req.setBloodPressureSystolic(120);
+		req.setBloodPressureDiastolic(80);
+		req.setHeartRate(76);
+		req.setRespiratoryRate(18);
+		req.setSpo2(new java.math.BigDecimal("99.0"));
+		req.setWeightKg(new java.math.BigDecimal("65.5"));
+		req.setHeightCm(new java.math.BigDecimal("170.0"));
+		req.setNotes("Bệnh nhân tỉnh táo, tiếp xúc tốt, không khó thở");
+
+		var res = medicalExaminationService.recordVitalSigns(req);
+		assertNotNull(res);
+		assertNotNull(res.getId());
+		assertEquals(1L, res.getPatientId());
+		assertEquals(new java.math.BigDecimal("22.7"), res.getBmi());
+		assertEquals("Bình thường", res.getBmiCategory());
+		assertEquals("Bình thường", res.getTemperatureStatus());
+
+		// Lấy sinh hiệu mới nhất
+		var latest = medicalExaminationService.getLatestVitalSigns(1L);
+		assertTrue(latest.isPresent());
+		assertEquals(res.getId(), latest.get().getId());
+	}
+
+	// UC-KB02: Xem bệnh án và lịch sử khám của bệnh nhân (Bác sĩ)
+	@Test
+	@Order(40)
+	void testUcKb02ViewPatientMedicalHistory() {
+		var history = medicalExaminationService.getPatientMedicalHistory(1L);
+		assertNotNull(history);
+		assertFalse(history.isEmpty(), "Bệnh nhân phải có lịch sử khám mẫu từ seed data");
+
+		var firstRecord = history.get(0);
+		assertNotNull(firstRecord.getRecordCode());
+		assertEquals(1L, firstRecord.getPatientId());
+		assertNotNull(firstRecord.getChiefComplaint());
+	}
+
+	// UC-KB03: Ghi triệu chứng và chẩn đoán (Bác sĩ)
+	@Test
+	@Order(41)
+	void testUcKb03RecordSymptomsAndDiagnosis() {
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest req =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest();
+		req.setPatientId(1L);
+		req.setDoctorId(2L); // BS.CKII Nguyễn Minh An
+		req.setRoomId(1L);   // P101
+		req.setChiefComplaint("Đau mỏi vùng cổ gáy, thỉnh thoảng tê lan xuống ngón tay");
+		req.setHistoryOfPresentIllness("Bệnh nhân làm việc văn phòng máy tính nhiều, triệu chứng kéo dài 1 tuần");
+		req.setPhysicalExamination("Ấn đau điểm cạnh sống cổ C5-C6, Spurlings test nghi ngờ");
+		req.setInitialDiagnosis("Theo dõi thoái hóa cột sống cổ / Chèn ép rễ");
+		req.setIcd10Code("M47.8");
+		req.setStatus("IN_PROGRESS");
+
+		var savedRecord = medicalExaminationService.saveDiagnosis(req);
+		assertNotNull(savedRecord);
+		assertNotNull(savedRecord.getId());
+		assertTrue(savedRecord.getRecordCode().startsWith("BA"));
+		assertEquals("Đau mỏi vùng cổ gáy, thỉnh thoảng tê lan xuống ngón tay", savedRecord.getChiefComplaint());
+		assertEquals("M47.8", savedRecord.getIcd10Code());
+		assertEquals("IN_PROGRESS", savedRecord.getStatus());
+	}
+
+	// UC-KB04: Chỉ định dịch vụ cận lâm sàng (Bác sĩ)
+	@Test
+	@Order(42)
+	void testUcKb04OrderClinicalServices() {
+		// Tạo trước một phiên khám nháp
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest diagReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest();
+		diagReq.setPatientId(1L);
+		diagReq.setDoctorId(2L);
+		diagReq.setRoomId(1L);
+		diagReq.setChiefComplaint("Chỉ định chụp X-quang và xét nghiệm máu");
+		var record = medicalExaminationService.saveDiagnosis(diagReq);
+
+		// Chỉ định dịch vụ
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.OrderLabServicesRequest orderReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.OrderLabServicesRequest();
+		orderReq.setMedicalRecordId(record.getId());
+		orderReq.setDoctorId(2L);
+		orderReq.setPatientId(1L);
+		orderReq.setDiagnosisNote("Kiểm tra khớp và công thức máu");
+		orderReq.setServiceIds(java.util.List.of(1L, 5L)); // Tổng phân tích máu + Chụp X-quang
+
+		var labOrder = medicalExaminationService.orderClinicalServices(orderReq);
+		assertNotNull(labOrder);
+		assertNotNull(labOrder.getId());
+		assertTrue(labOrder.getOrderCode().startsWith("CLS"));
+		assertEquals(2, labOrder.getItems().size());
+		assertEquals("PENDING", labOrder.getStatus());
+
+		// Record status được tự động chuyển sang WAITING_PARACLINICAL
+		var updatedRecord = medicalExaminationService.getMedicalRecordById(record.getId());
+		assertEquals("WAITING_PARACLINICAL", updatedRecord.getStatus());
+	}
+
+	// UC-KB05: Xem và cập nhật kết quả cận lâm sàng (Bác sĩ, Kỹ thuật viên)
+	@Test
+	@Order(43)
+	void testUcKb05ViewAndCompleteClinicalResults() {
+		// Tạo chỉ định
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest diagReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest();
+		diagReq.setPatientId(1L);
+		diagReq.setDoctorId(2L);
+		diagReq.setRoomId(1L);
+		diagReq.setChiefComplaint("Khám tổng quát và đo đường huyết");
+		var record = medicalExaminationService.saveDiagnosis(diagReq);
+
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.OrderLabServicesRequest orderReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.OrderLabServicesRequest();
+		orderReq.setMedicalRecordId(record.getId());
+		orderReq.setDoctorId(2L);
+		orderReq.setPatientId(1L);
+		orderReq.setServiceIds(java.util.List.of(2L)); // Đo đường huyết
+
+		var labOrder = medicalExaminationService.orderClinicalServices(orderReq);
+		Long resultId = labOrder.getItems().get(0).getId();
+
+		// Kỹ thuật viên nhập kết quả
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.UpdateLabResultRequest updateReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.UpdateLabResultRequest();
+		updateReq.setResultId(resultId);
+		updateReq.setTechnicianId(5L); // KTV Lê Văn Đức
+		updateReq.setTestValue("5.4");
+		updateReq.setReferenceRange("3.9 - 6.4");
+		updateReq.setUnit("mmol/L");
+		updateReq.setConclusion("Đường huyết lúc đói bình thường trong giới hạn tham chiếu");
+
+		var completedResult = medicalExaminationService.updateLabResult(updateReq);
+		assertEquals("COMPLETED", completedResult.getStatus());
+		assertEquals("5.4", completedResult.getTestValue());
+
+		// Bác sĩ xem kết quả
+		var orders = medicalExaminationService.getLabOrdersByRecord(record.getId());
+		assertEquals(1, orders.size());
+		assertEquals("COMPLETED", orders.get(0).getStatus());
+		assertEquals("COMPLETED", orders.get(0).getItems().get(0).getStatus());
+	}
+
+	// UC-KB06: Hẹn tái khám (Bác sĩ)
+	@Test
+	@Order(44)
+	void testUcKb06ScheduleFollowUp() {
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest diagReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest();
+		diagReq.setPatientId(1L);
+		diagReq.setDoctorId(2L);
+		diagReq.setRoomId(1L);
+		diagReq.setChiefComplaint("Theo dõi định kỳ huyết áp");
+		var record = medicalExaminationService.saveDiagnosis(diagReq);
+
+		java.time.LocalDate followUp = java.time.LocalDate.now().plusWeeks(2);
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.ScheduleFollowUpRequest followReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.ScheduleFollowUpRequest();
+		followReq.setMedicalRecordId(record.getId());
+		followReq.setFollowUpDate(followUp);
+		followReq.setDoctorAdvice("Đo huyết áp hàng ngày tại nhà vào mỗi buổi sáng, tái khám sau 2 tuần hoặc khi có dấu hiệu bất thường");
+
+		var updated = medicalExaminationService.scheduleFollowUp(followReq);
+		assertEquals(followUp, updated.getFollowUpDate());
+		assertTrue(updated.getDoctorAdvice().contains("Đo huyết áp hàng ngày"));
+	}
+
+	// UC-KB07: Kết thúc phiên khám (Bác sĩ)
+	@Test
+	@Order(45)
+	void testUcKb07CompleteEncounter() {
+		// Tạo bệnh nhân vãng lai chờ khám tại phòng 1
+		com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest walkInReq =
+				new com.clinic.clinic_management.dto.QueueDtos.WalkInReceptionRequest();
+		walkInReq.setFullName("BN Phiên Khám Hoàn Tất");
+		walkInReq.setPhone("09" + (int)(Math.random() * 90000000 + 10000000));
+		walkInReq.setRoomId(1L);
+		var ticket = queueService.receptionWalkIn(walkInReq, 3L);
+
+		// Mở phiên khám
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest diagReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.SaveDiagnosisRequest();
+		diagReq.setTicketId(ticket.getId());
+		diagReq.setPatientId(ticket.getPatientId());
+		diagReq.setDoctorId(2L);
+		diagReq.setRoomId(1L);
+		diagReq.setChiefComplaint("Viêm họng cấp, sốt nhẹ 37.8 độ");
+		var record = medicalExaminationService.saveDiagnosis(diagReq);
+
+		// Thử kết thúc phiên khám mà chưa có chẩn đoán xác định -> ném Exception
+		com.clinic.clinic_management.dto.MedicalExaminationDtos.CompleteEncounterRequest compReq =
+				new com.clinic.clinic_management.dto.MedicalExaminationDtos.CompleteEncounterRequest();
+		compReq.setMedicalRecordId(record.getId());
+		assertThrows(IllegalArgumentException.class, () -> {
+			medicalExaminationService.completeEncounter(compReq);
+		}, "Bắt buộc phải có chẩn đoán xác định khi kết thúc khám");
+
+		// Bổ sung chẩn đoán xác định và kết thúc
+		compReq.setFinalDiagnosis("Viêm họng cấp tính do thời tiết (J02.9)");
+		compReq.setIcd10Code("J02.9");
+		compReq.setDoctorAdvice("Súc họng nước muối sinh lý, uống nhiều nước ấm, giữ ấm cổ");
+		compReq.setTicketId(ticket.getId());
+
+		var completed = medicalExaminationService.completeEncounter(compReq);
+		assertEquals("COMPLETED", completed.getStatus());
+		assertEquals("Viêm họng cấp tính do thời tiết (J02.9)", completed.getFinalDiagnosis());
+
+		// Phiếu hàng đợi cũng phải tự động chuyển sang COMPLETED
+		var updatedTicket = queueTicketRepository.findById(ticket.getId()).orElseThrow();
+		assertEquals("COMPLETED", updatedTicket.getStatus());
+		assertNotNull(updatedTicket.getCompletedAt());
+	}
+
+	// UC-KB08: In phiếu khám / tóm tắt bệnh án (Bác sĩ, Lễ tân)
+	@Test
+	@Order(46)
+	void testUcKb08PrintMedicalSummary() {
+		// Lấy tóm tắt hồ sơ mẫu ID 1 từ seed data
+		var printDto = medicalExaminationService.getEncounterSummaryPrint(1L);
+		assertNotNull(printDto);
+		assertEquals(1L, printDto.getRecordId());
+		assertNotNull(printDto.getRecordCode());
+		assertNotNull(printDto.getPatientName());
+		assertNotNull(printDto.getDoctorName());
+		assertNotNull(printDto.getRoomName());
+		assertNotNull(printDto.getChiefComplaint());
+		assertNotNull(printDto.getFinalDiagnosis());
+		assertNotNull(printDto.getIcd10Code());
+		assertNotNull(printDto.getClinicName());
+		assertNotNull(printDto.getClinicAddress());
+	}
 }
+

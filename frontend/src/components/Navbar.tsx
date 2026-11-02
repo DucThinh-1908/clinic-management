@@ -115,6 +115,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : (
             <>
               <NavLink
+                to="/tiep-don-xep-hang"
+                style={({ isActive }) => ({
+                  color: isActive ? '#0369a1' : '#0284c7',
+                  fontWeight: 700,
+                  background: isActive ? '#e0f2fe' : '#f0f9ff',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid #bae6fd',
+                  transition: 'all 0.2s',
+                })}
+              >
+                Tiếp đón & Hàng chờ
+              </NavLink>
+              <NavLink
                 to="/lich-hen"
                 style={({ isActive }) => ({
                   color: isActive ? '#9a3412' : '#ea580c',
@@ -332,6 +346,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </Link>
                       )}
                       <Link
+                        to="/tiep-don-xep-hang"
+                        onClick={() => setUserDropdownOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '10px 16px',
+                          fontSize: '13.5px',
+                          color: '#0369a1',
+                        }}
+                      >
+                        Tiếp đón & Hàng chờ
+                      </Link>
+                      <Link
                         to="/lich-hen"
                         onClick={() => setUserDropdownOpen(false)}
                         style={{
@@ -510,6 +536,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           ) : (
             <>
+              <Link to="/tiep-don-xep-hang" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#0369a1' }}>
+                Tiếp đón & Hàng chờ
+              </Link>
               <Link to="/lich-hen" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#ea580c' }}>
                 Đặt & Quản lý lịch hẹn
               </Link>

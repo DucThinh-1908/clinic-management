@@ -16,6 +16,7 @@ import { AdminAccountPortal } from './pages/AdminAccountPortal'
 import { PatientManagementPage } from './pages/PatientManagementPage'
 import { StaffSchedulingPage } from './pages/StaffSchedulingPage'
 import { AppointmentManagementPage } from './pages/AppointmentManagementPage'
+import { ReceptionQueuePage } from './pages/ReceptionQueuePage'
 import type { AuthUser } from './types'
 import './App.css'
 
@@ -234,6 +235,12 @@ function App() {
             <Route path="/lich-hen" element={<AppointmentManagementPage currentUser={currentUser} />} />
             <Route path="/dat-lich" element={<AppointmentManagementPage currentUser={currentUser} />} />
             <Route path="/quan-ly-lich-hen" element={<AppointmentManagementPage currentUser={currentUser} />} />
+
+            {/* Tiếp đón và xếp hàng khám bệnh (Module 3.5) */}
+            <Route path="/tiep-don" element={<ReceptionQueuePage currentUser={currentUser} />} />
+            <Route path="/hang-cho" element={<ReceptionQueuePage currentUser={currentUser} />} />
+            <Route path="/tiep-don-xep-hang" element={<ReceptionQueuePage currentUser={currentUser} />} />
+            <Route path="/man-hinh-goi-so" element={<ReceptionQueuePage currentUser={currentUser} />} />
           </Routes>
         </main>
 

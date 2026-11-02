@@ -347,4 +347,79 @@ export interface AppointmentStatsItem {
   noShow: number
 }
 
+export interface QueueTicketItem {
+  id: number
+  ticketCode: string
+  ticketNumber: number
+  patientId: number
+  patientCode?: string
+  patientName: string
+  patientPhone: string
+  patientGender?: string
+  patientDob?: string
+  patientAge?: number
+  identityCard?: string
+  appointmentId?: number
+  appointmentCode?: string
+  isAppointment: boolean
+  roomId: number
+  roomNumber: string
+  roomName: string
+  departmentId?: number
+  departmentName?: string
+  doctorId?: number
+  doctorName?: string
+  doctorStaffCode?: string
+  priority: 'NORMAL' | 'PRIORITY' | 'EMERGENCY'
+  serviceType?: string
+  queueDate: string
+  status: 'WAITING' | 'CALLED' | 'SERVING' | 'COMPLETED' | 'SKIPPED'
+  calledAt?: string
+  servingAt?: string
+  completedAt?: string
+  transferReason?: string
+  transferredFromRoomId?: number
+  transferredFromRoomName?: string
+  callCount: number
+  notes?: string
+  createdAt: string
+  waitPosition: number
+}
+
+export interface RoomQueueOverviewItem {
+  roomId: number
+  roomNumber: string
+  roomName: string
+  departmentId?: number
+  departmentName?: string
+  doctorId?: number
+  doctorName?: string
+  isAvailable?: boolean
+  available?: boolean
+  currentServing?: QueueTicketItem | null
+  currentCalled?: QueueTicketItem | null
+  waitingCount: number
+  completedCount: number
+  totalCount: number
+}
+
+export interface QueueStatsItem {
+  date: string
+  totalTickets: number
+  waiting: number
+  called: number
+  serving: number
+  completed: number
+  skipped: number
+}
+
+export interface SimpleRoomOption {
+  id: number
+  roomNumber: string
+  name: string
+  roomType: string
+  departmentId?: number
+  isAvailable: boolean
+}
+
 

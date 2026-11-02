@@ -40,7 +40,11 @@ public class WebController {
         "/cham-cong",
         "/lich-hen",
         "/dat-lich",
-        "/quan-ly-lich-hen"
+        "/quan-ly-lich-hen",
+        "/tiep-don",
+        "/hang-cho",
+        "/tiep-don-xep-hang",
+        "/man-hinh-goi-so"
     })
     public String forwardToSpa() {
         return "forward:/index.html";

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
@@ -71,6 +72,12 @@ class ClinicManagementApplicationTests {
 
 	@Autowired
 	private com.clinic.clinic_management.controller.BillingController billingController;
+
+	@Autowired
+	private com.clinic.clinic_management.service.ReportService reportService;
+
+	@Autowired
+	private com.clinic.clinic_management.controller.ReportController reportController;
 
 	@Test
 	@Order(1)
@@ -1737,6 +1744,121 @@ class ClinicManagementApplicationTests {
 		// Tra cứu danh sách bảng giá
 		var services = billingService.getAllServices(null, null);
 		assertFalse(services.isEmpty());
+	}
+
+	// =========================================================================
+	// PHÂN HỆ 3.10: BÁO CÁO (8 USE CASES)
+	// =========================================================================
+
+	@Test
+	@Order(65)
+	void testUcBc01RevenueReport() {
+		// Báo cáo doanh thu theo ngày/tháng/năm
+		var repMonthly = reportService.getRevenueReport("MONTHLY", null, null);
+		assertNotNull(repMonthly);
+		assertEquals("MONTHLY", repMonthly.getPeriod());
+		assertNotNull(repMonthly.getTotalRevenue());
+		assertNotNull(repMonthly.getNetRevenue());
+		assertNotNull(repMonthly.getPaymentMethodBreakdown());
+		assertTrue(repMonthly.getPaymentMethodBreakdown().containsKey("Tiền mặt"));
+		assertFalse(repMonthly.getTimelineData().isEmpty());
+
+		var repCustom = reportService.getRevenueReport("CUSTOM", LocalDate.now().minusDays(7), LocalDate.now());
+		assertNotNull(repCustom);
+		assertEquals(8, repCustom.getTimelineData().size());
+	}
+
+	@Test
+	@Order(66)
+	void testUcBc02DoctorServiceRevenue() {
+		// Báo cáo doanh thu theo dịch vụ và bác sĩ
+		var docServRep = reportService.getDoctorServiceRevenue(LocalDate.now().minusDays(30), LocalDate.now());
+		assertNotNull(docServRep);
+		assertNotNull(docServRep.getTopServices());
+		assertNotNull(docServRep.getDoctorRevenues());
+		assertNotNull(docServRep.getTotalServicesAmount());
+	}
+
+	@Test
+	@Order(67)
+	void testUcBc03VisitReport() {
+		// Báo cáo lượt khám
+		var visitRep = reportService.getVisitReport(LocalDate.now().minusDays(30), LocalDate.now());
+		assertNotNull(visitRep);
+		assertTrue(visitRep.getTotalVisits() >= 0);
+		assertNotNull(visitRep.getDepartmentVisits());
+		assertNotNull(visitRep.getDemographics());
+		assertTrue(visitRep.getDemographics().getMaleCount() >= 0);
+		assertTrue(visitRep.getDemographics().getFemaleCount() >= 0);
+	}
+
+	@Test
+	@Order(68)
+	void testUcBc04CommonDiseasesReport() {
+		// Thống kê bệnh thường gặp
+		var diseaseRep = reportService.getCommonDiseases(LocalDate.now().minusDays(60), LocalDate.now(), 10);
+		assertNotNull(diseaseRep);
+		assertNotNull(diseaseRep.getTopDiseases());
+		if (!diseaseRep.getTopDiseases().isEmpty()) {
+			var first = diseaseRep.getTopDiseases().get(0);
+			assertNotNull(first.getDiseaseName());
+			assertTrue(first.getCaseCount() > 0);
+		}
+	}
+
+	@Test
+	@Order(69)
+	void testUcBc05MedicineStockReport() {
+		// Báo cáo thuốc dùng và tồn kho
+		var medRep = reportService.getMedicineStockReport();
+		assertNotNull(medRep);
+		assertNotNull(medRep.getTopPrescribedMedicines());
+		assertNotNull(medRep.getStockOverview());
+		assertTrue(medRep.getStockOverview().getTotalMedicinesCount() >= 0);
+		assertNotNull(medRep.getStockOverview().getTotalInventoryValue());
+		assertNotNull(medRep.getAlertItems());
+	}
+
+	@Test
+	@Order(70)
+	void testUcBc06AppointmentReport() {
+		// Báo cáo lịch hẹn (tỷ lệ hủy, no-show)
+		var appRep = reportService.getAppointmentReport(LocalDate.now().minusDays(30), LocalDate.now());
+		assertNotNull(appRep);
+		assertTrue(appRep.getTotalAppointments() >= 0);
+		assertNotNull(appRep.getCancellationRate());
+		assertNotNull(appRep.getNoShowRate());
+		assertNotNull(appRep.getCancellationReasons());
+		assertNotNull(appRep.getChannelStats());
+	}
+
+	@Test
+	@Order(71)
+	void testUcBc07RealtimeDashboard() {
+		// Dashboard thời gian thực
+		var dash = reportService.getRealtimeDashboard();
+		assertNotNull(dash);
+		assertNotNull(dash.getLastUpdated());
+		assertTrue(dash.getTodayPatientsRegistered() >= 0);
+		assertNotNull(dash.getTodayRevenue());
+		assertEquals(12, dash.getHourlyVisits().size()); // 7:00 đến 18:00
+		assertFalse(dash.getRecentActivities().isEmpty());
+	}
+
+	@Test
+	@Order(72)
+	void testUcBc08ExportReportCsv() {
+		// Xuất báo cáo Excel / CSV
+		byte[] revCsv = reportService.exportReportToCsv("REVENUE", LocalDate.now().minusDays(7), LocalDate.now());
+		assertNotNull(revCsv);
+		assertTrue(revCsv.length > 0);
+		String text = new String(revCsv, java.nio.charset.StandardCharsets.UTF_8);
+		assertTrue(text.contains("CAREPLUS"));
+		assertTrue(text.contains("BÁO CÁO TÀI CHÍNH"));
+
+		byte[] diseaseCsv = reportService.exportReportToCsv("DISEASES", LocalDate.now().minusDays(30), LocalDate.now());
+		assertNotNull(diseaseCsv);
+		assertTrue(diseaseCsv.length > 0);
 	}
 }
 

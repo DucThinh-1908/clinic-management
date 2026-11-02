@@ -54,6 +54,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const canAccessPatients = isDoctor || isNurse || isReceptionist || isCashier || canManage
   const canAccessSchedule = isStaff
   const canAccessShiftSwap = isStaff && !canManage
+  const canAccessReports = canManage || isDoctor || isPharmacist
 
   const brandDestination = isStaff
     ? isCashier
@@ -321,6 +322,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                     Tài khoản & Phân quyền
                   </NavLink>
                 </>
+              )}
+
+              {canAccessReports && (
+                <NavLink
+                  to="/bao-cao"
+                  style={({ isActive }) => ({
+                    color: isActive ? '#0369a1' : '#0284c7',
+                    fontWeight: 700,
+                    background: isActive ? '#e0f2fe' : '#f0f9ff',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    border: '1px solid #bae6fd',
+                    transition: 'all 0.2s',
+                  })}
+                >
+                  {canManage
+                    ? 'Báo cáo & Thống kê'
+                    : isDoctor
+                    ? 'Thống kê bệnh'
+                    : 'Báo cáo kho dược'}
+                </NavLink>
               )}
             </>
           )}
@@ -594,6 +616,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </>
                   )}
 
+                  {canAccessReports && (
+                    <Link
+                      to="/bao-cao"
+                      onClick={() => setUserDropdownOpen(false)}
+                      style={{
+                        display: 'block',
+                        padding: '10px 16px',
+                        fontSize: '13.5px',
+                        color: '#0284c7',
+                        fontWeight: 650,
+                      }}
+                    >
+                      {canManage ? 'Báo cáo & Thống kê' : isDoctor ? 'Thống kê bệnh' : 'Báo cáo kho dược'}
+                    </Link>
+                  )}
+
                   <button
                     onClick={() => {
                       setUserDropdownOpen(false)
@@ -727,6 +765,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                     Nhật ký truy cập hồ sơ
                   </Link>
                 </>
+              )}
+              {canAccessReports && (
+                <Link to="/bao-cao" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#0284c7' }}>
+                  {canManage ? 'Báo cáo & Thống kê' : isDoctor ? 'Thống kê bệnh' : 'Báo cáo kho dược'}
+                </Link>
               )}
             </>
           )}

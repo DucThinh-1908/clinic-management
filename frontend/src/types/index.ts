@@ -916,3 +916,190 @@ export interface RefundInvoiceRequest {
   actorId?: number
   reason: string
 }
+
+// =========================================================================
+// PHÂN HỆ 3.10: BÁO CÁO & THỐNG KÊ (8 USE CASES)
+// =========================================================================
+
+export interface RevenueTimePoint {
+  label: string
+  dateStr: string
+  totalAmount: number
+  serviceAmount: number
+  medicineAmount: number
+  invoiceCount: number
+}
+
+export interface RevenueReport {
+  period: string
+  startDate: string
+  endDate: string
+  totalRevenue: number
+  totalServiceRevenue: number
+  totalMedicineRevenue: number
+  totalInsurancePaid: number
+  totalDiscount: number
+  totalRefunded: number
+  netRevenue: number
+  paidInvoiceCount: number
+  paymentMethodBreakdown: Record<string, number>
+  timelineData: RevenueTimePoint[]
+}
+
+export interface TopServiceItem {
+  serviceName: string
+  serviceType: string
+  quantity: number
+  unitPrice: number
+  totalRevenue: number
+  percentage: number
+}
+
+export interface DoctorRevenueItem {
+  doctorId: number
+  doctorName: string
+  staffCode: string
+  departmentName: string
+  examinationCount: number
+  serviceRevenue: number
+  medicineRevenue: number
+  totalRevenue: number
+}
+
+export interface DoctorServiceRevenue {
+  topServices: TopServiceItem[]
+  doctorRevenues: DoctorRevenueItem[]
+  totalServicesAmount: number
+  totalServiceExecutions: number
+}
+
+export interface DepartmentVisitItem {
+  departmentName: string
+  visitCount: number
+  percentage: number
+}
+
+export interface VisitDemographics {
+  maleCount: number
+  femaleCount: number
+  withInsuranceCount: number
+  withoutInsuranceCount: number
+  childrenCount: number
+  adultCount: number
+  elderlyCount: number
+}
+
+export interface DailyVisitTrend {
+  dateStr: string
+  dayOfWeek: string
+  visitCount: number
+}
+
+export interface VisitReport {
+  totalVisits: number
+  completedVisits: number
+  inProgressVisits: number
+  waitingVisits: number
+  departmentVisits: DepartmentVisitItem[]
+  demographics: VisitDemographics
+  dailyTrends: DailyVisitTrend[]
+}
+
+export interface CommonDiseaseItem {
+  icd10Code: string
+  diseaseName: string
+  caseCount: number
+  percentage: number
+  commonAgeGroup?: string
+  primaryDepartment?: string
+}
+
+export interface CommonDiseaseReport {
+  totalDiagnoses: number
+  topDiseases: CommonDiseaseItem[]
+}
+
+export interface TopPrescribedMedicineItem {
+  medicineId: number
+  medicineCode: string
+  brandName: string
+  activeIngredient: string
+  unit: string
+  totalQuantityDispensed: number
+  totalAmount: number
+}
+
+export interface MedicineStockOverview {
+  totalMedicinesCount: number
+  totalBatchesCount: number
+  totalInventoryValue: number
+  lowStockCount: number
+  nearExpiryCount: number
+  expiredCount: number
+}
+
+export interface ReportStockAlertItem {
+  alertType: string
+  medicineName: string
+  batchNumber: string
+  availableQuantity: number
+  expiryDate: string
+  severity: string
+}
+
+export interface MedicineStockReport {
+  topPrescribedMedicines: TopPrescribedMedicineItem[]
+  stockOverview: MedicineStockOverview
+  alertItems: ReportStockAlertItem[]
+}
+
+export interface CancellationReasonItem {
+  reason: string
+  count: number
+  percentage: number
+}
+
+export interface AppointmentChannelItem {
+  channel: string
+  count: number
+  percentage: number
+}
+
+export interface AppointmentReport {
+  totalAppointments: number
+  completedCount: number
+  confirmedCount: number
+  cancelledCount: number
+  noShowCount: number
+  cancellationRate: number
+  noShowRate: number
+  completionRate: number
+  cancellationReasons: CancellationReasonItem[]
+  channelStats: AppointmentChannelItem[]
+}
+
+export interface HourlyVisitItem {
+  hourLabel: string
+  visitCount: number
+}
+
+export interface DashboardRecentActivityItem {
+  time: string
+  activityType: string
+  description: string
+  amount: string
+  status: string
+}
+
+export interface RealtimeDashboard {
+  todayPatientsRegistered: number
+  waitingConsultationCount: number
+  inConsultationCount: number
+  completedConsultationCount: number
+  activeDoctorsCount: number
+  todayRevenue: number
+  todayPrescriptionsCount: number
+  lastUpdated: string
+  hourlyVisits: HourlyVisitItem[]
+  recentActivities: DashboardRecentActivityItem[]
+}

@@ -4,7 +4,9 @@ import com.clinic.clinic_management.controller.WebController;
 import com.clinic.clinic_management.dto.AccountDtos.*;
 import com.clinic.clinic_management.dto.AuthDtos.*;
 import com.clinic.clinic_management.entity.Role;
+import com.clinic.clinic_management.repository.AppointmentRepository;
 import com.clinic.clinic_management.repository.RoleRepository;
+import com.clinic.clinic_management.repository.StaffScheduleRepository;
 import com.clinic.clinic_management.service.*;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -39,6 +41,15 @@ class ClinicManagementApplicationTests {
 
 	@Autowired
 	private StaffSchedulingService staffSchedulingService;
+
+	@Autowired
+	private StaffScheduleRepository staffScheduleRepository;
+
+	@Autowired
+	private AppointmentRepository appointmentRepository;
+
+	@Autowired
+	private AppointmentService appointmentService;
 
 	@Test
 	@Order(1)
@@ -568,8 +579,11 @@ class ClinicManagementApplicationTests {
 		req.staffId = 2L; // Doctor An
 		req.shiftId = 1L; // Morning
 		req.roomId = 1L; // P101
-		req.workDate = java.time.LocalDate.now().plusDays(2);
+		req.workDate = java.time.LocalDate.now().plusDays(20);
 		req.note = "Truc phong kham Noi 1 ca sang";
+
+		staffScheduleRepository.findByStaffIdAndShiftIdAndWorkDate(req.staffId, req.shiftId, req.workDate)
+				.ifPresent(existing -> staffScheduleRepository.delete(existing));
 
 		// Create schedule by Manager
 		var schedule = staffSchedulingService.createSchedule(req, 2L, "127.0.0.1");
@@ -648,5 +662,228 @@ class ClinicManagementApplicationTests {
 		// Check attendance history
 		var history = staffSchedulingService.getMyAttendance(4L, java.time.LocalDate.now().minusDays(5), java.time.LocalDate.now());
 		assertFalse(history.isEmpty());
+	}
+
+	// =========================================================================
+	// PHAN HE 3.4: DAT LICH HEN (8 UC: UC-LH01 -> UC-LH08)
+	// =========================================================================
+
+	// UC-LH01: Xem khung gio trong cua bac si (Benh nhan, Le tan)
+	@Test
+	@Order(25)
+	void testUcLh01GetDoctorSlots() {
+		java.time.LocalDate targetDate = java.time.LocalDate.now().plusDays(2);
+		var slotsSummary = appointmentService.getDoctorAvailableSlots(2L, targetDate);
+		assertNotNull(slotsSummary);
+		assertEquals(2L, slotsSummary.getDoctorId());
+		assertNotNull(slotsSummary.getDoctorName());
+		assertFalse(slotsSummary.getSlots().isEmpty());
+
+		// Test getAvailableDoctors helper
+		var doctors = appointmentService.getAvailableDoctors(targetDate, null);
+		assertFalse(doctors.isEmpty());
+	}
+
+	// UC-LH02: Dat lich hen (Benh nhan, Le tan)
+	@Test
+	@Order(26)
+	void testUcLh02BookAppointment() {
+		java.time.LocalDate date = java.time.LocalDate.now().plusDays(3);
+		appointmentRepository.findByDoctorIdAndAppointmentDateOrderByAppointmentTimeAsc(2L, date)
+				.forEach(appointmentRepository::delete);
+
+		com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest req = new com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest();
+		req.setDoctorId(2L);
+		req.setPatientId(1L);
+		req.setAppointmentDate(date);
+		req.setAppointmentTime(java.time.LocalTime.of(8, 30));
+		req.setSymptomsSummary("Dau dau chong mat, nghi tang huyet ap");
+		req.setBookingChannel("ONLINE_PORTAL");
+		req.setNotes("Dat hen qua cong thong tin benh nhan");
+
+		var booked = appointmentService.bookAppointment(req, 1L);
+		assertNotNull(booked);
+		assertNotNull(booked.getAppointmentCode());
+		assertTrue(booked.getAppointmentCode().startsWith("LH-"));
+		assertEquals("PENDING", booked.getStatus());
+		assertEquals(2L, booked.getDoctorId());
+		assertFalse(booked.getReminders().isEmpty()); // Auto generated reminder UC-LH06
+	}
+
+	// UC-LH03: Xac nhan lich hen (Le tan)
+	@Test
+	@Order(27)
+	void testUcLh03ConfirmAppointment() {
+		java.time.LocalDate date = java.time.LocalDate.now().plusDays(4);
+		appointmentRepository.findByDoctorIdAndAppointmentDateOrderByAppointmentTimeAsc(2L, date)
+				.forEach(appointmentRepository::delete);
+
+		com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest req = new com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest();
+		req.setDoctorId(2L);
+		req.setPatientId(1L);
+		req.setAppointmentDate(date);
+		req.setAppointmentTime(java.time.LocalTime.of(9, 0));
+		req.setSymptomsSummary("Kham tong quat dinh ky");
+		req.setBookingChannel("ONLINE_PORTAL");
+
+		var booked = appointmentService.bookAppointment(req, 1L);
+
+		// Receptionist confirms
+		com.clinic.clinic_management.dto.AppointmentDtos.ConfirmAppointmentRequest confirmReq = new com.clinic.clinic_management.dto.AppointmentDtos.ConfirmAppointmentRequest();
+		confirmReq.setNotes("Da goi dien thoai xac nhan voi benh nhan");
+
+		var confirmed = appointmentService.confirmAppointment(booked.getId(), confirmReq, 3L);
+		assertEquals("CONFIRMED", confirmed.getStatus());
+		assertTrue(confirmed.getNotes().contains("Da goi dien thoai xac nhan voi benh nhan"));
+	}
+
+	// UC-LH04: Doi gio lich hen (Benh nhan, Le tan)
+	@Test
+	@Order(28)
+	void testUcLh04RescheduleAppointment() {
+		java.time.LocalDate date = java.time.LocalDate.now().plusDays(5);
+		appointmentRepository.findByDoctorIdAndAppointmentDateOrderByAppointmentTimeAsc(2L, date)
+				.forEach(appointmentRepository::delete);
+
+		com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest req = new com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest();
+		req.setDoctorId(2L);
+		req.setPatientId(1L);
+		req.setAppointmentDate(date);
+		req.setAppointmentTime(java.time.LocalTime.of(10, 0));
+		req.setSymptomsSummary("Theo doi ket qua dieu tri");
+
+		var booked = appointmentService.bookAppointment(req, 1L);
+
+		// Reschedule to 14:00
+		com.clinic.clinic_management.dto.AppointmentDtos.RescheduleAppointmentRequest rescheduleReq = new com.clinic.clinic_management.dto.AppointmentDtos.RescheduleAppointmentRequest();
+		rescheduleReq.setNewDate(date);
+		rescheduleReq.setNewTime(java.time.LocalTime.of(14, 0));
+		rescheduleReq.setReason("Ban cong viec dot xuat buoi sang");
+
+		var updated = appointmentService.rescheduleAppointment(booked.getId(), rescheduleReq, 1L);
+		assertEquals(java.time.LocalTime.of(14, 0), updated.getAppointmentTime());
+		assertTrue(updated.getNotes().contains("Ban cong viec dot xuat buoi sang"));
+	}
+
+	// UC-LH05: Huy lich hen (Benh nhan, Le tan)
+	@Test
+	@Order(29)
+	void testUcLh05CancelAppointment() {
+		java.time.LocalDate date = java.time.LocalDate.now().plusDays(6);
+		appointmentRepository.findByDoctorIdAndAppointmentDateOrderByAppointmentTimeAsc(2L, date)
+				.forEach(appointmentRepository::delete);
+
+		com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest req = new com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest();
+		req.setDoctorId(2L);
+		req.setPatientId(1L);
+		req.setAppointmentDate(date);
+		req.setAppointmentTime(java.time.LocalTime.of(15, 0));
+		req.setSymptomsSummary("Kham suc khoe di lam");
+
+		var booked = appointmentService.bookAppointment(req, 1L);
+
+		// Cancel
+		com.clinic.clinic_management.dto.AppointmentDtos.CancelAppointmentRequest cancelReq = new com.clinic.clinic_management.dto.AppointmentDtos.CancelAppointmentRequest();
+		cancelReq.setReason("Benh nhan muon doi sang tuan sau");
+
+		var cancelled = appointmentService.cancelAppointment(booked.getId(), cancelReq, 1L);
+		assertEquals("CANCELLED", cancelled.getStatus());
+		assertEquals("Benh nhan muon doi sang tuan sau", cancelled.getCancellationReason());
+	}
+
+	// UC-LH06: Gui nhac lich hen (SMS/email) (He thong, Le tan)
+	@Test
+	@Order(30)
+	void testUcLh06SendReminder() {
+		java.time.LocalDate date = java.time.LocalDate.now().plusDays(7);
+		appointmentRepository.findByDoctorIdAndAppointmentDateOrderByAppointmentTimeAsc(2L, date)
+				.forEach(appointmentRepository::delete);
+
+		com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest req = new com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest();
+		req.setDoctorId(2L);
+		req.setPatientId(1L);
+		req.setAppointmentDate(date);
+		req.setAppointmentTime(java.time.LocalTime.of(8, 0));
+		req.setSymptomsSummary("Kiem tra duong huyet");
+
+		var booked = appointmentService.bookAppointment(req, 1L);
+
+		// Send manual reminder via SMS
+		com.clinic.clinic_management.dto.AppointmentDtos.SendReminderRequest reminderReq = new com.clinic.clinic_management.dto.AppointmentDtos.SendReminderRequest();
+		reminderReq.setReminderType("SMS");
+		reminderReq.setRecipient("0988777666");
+		reminderReq.setTitle("Nhac lich kham");
+		reminderReq.setContent("Kinh moi quy khach den dung gio hen 08:00 sang");
+
+		var reminder = appointmentService.sendReminder(booked.getId(), reminderReq, 3L);
+		assertNotNull(reminder);
+		assertEquals("SMS", reminder.getReminderType());
+		assertEquals("0988777666", reminder.getRecipient());
+
+		// Verify reminder list
+		var reminders = appointmentService.getRemindersByAppointmentId(booked.getId());
+		assertFalse(reminders.isEmpty());
+	}
+
+	// UC-LH07: Xem danh sach lich hen trong ngay (Le tan, Bac si)
+	@Test
+	@Order(31)
+	void testUcLh07GetAppointmentsAndStats() {
+		java.time.LocalDate testDate = java.time.LocalDate.now().plusDays(8);
+		appointmentRepository.findByDoctorIdAndAppointmentDateOrderByAppointmentTimeAsc(2L, testDate)
+				.forEach(appointmentRepository::delete);
+
+		com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest req = new com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest();
+		req.setDoctorId(2L);
+		req.setPatientId(1L);
+		req.setAppointmentDate(testDate);
+		req.setAppointmentTime(java.time.LocalTime.of(9, 30));
+		req.setSymptomsSummary("Tai kham huyet ap");
+
+		appointmentService.bookAppointment(req, 1L);
+
+		// Get appointments on that date
+		var list = appointmentService.getAppointments(testDate, 2L, null, null, null, null, null);
+		assertFalse(list.isEmpty());
+
+		// Get stats
+		var stats = appointmentService.getAppointmentStats(testDate);
+		assertNotNull(stats);
+		assertTrue(stats.getTotal() >= 1);
+	}
+
+	// UC-LH08: Xu ly benh nhan khong den (no-show) (Le tan)
+	@Test
+	@Order(32)
+	void testUcLh08MarkNoShow() {
+		java.time.LocalDate date = java.time.LocalDate.now().plusDays(9);
+		appointmentRepository.findByDoctorIdAndAppointmentDateOrderByAppointmentTimeAsc(2L, date)
+				.forEach(appointmentRepository::delete);
+
+		com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest req = new com.clinic.clinic_management.dto.AppointmentDtos.CreateAppointmentRequest();
+		req.setDoctorId(2L);
+		req.setPatientId(1L);
+		req.setAppointmentDate(date);
+		req.setAppointmentTime(java.time.LocalTime.of(16, 0));
+		req.setSymptomsSummary("Kham da lieu");
+
+		var booked = appointmentService.bookAppointment(req, 1L);
+
+		// Mark no-show
+		com.clinic.clinic_management.dto.AppointmentDtos.NoShowRequest noShowReq = new com.clinic.clinic_management.dto.AppointmentDtos.NoShowRequest();
+		noShowReq.setReason("Qua gio hen 60 phut, goi dien khong lien lac duoc");
+
+		var noShow = appointmentService.markNoShow(booked.getId(), noShowReq, 3L);
+		assertEquals("CANCELLED", noShow.getStatus());
+		assertTrue(noShow.getCancellationReason().contains("Qua gio hen 60 phut"));
+		assertTrue(noShow.getCancellationReason().contains("No-Show"));
+
+		// Yeu cau: Lich hen vang mat bi huy va tuyet doi khong cho phep doi gio
+		com.clinic.clinic_management.dto.AppointmentDtos.RescheduleAppointmentRequest reschedReq = new com.clinic.clinic_management.dto.AppointmentDtos.RescheduleAppointmentRequest();
+		reschedReq.setNewDate(date.plusDays(1));
+		reschedReq.setNewTime(java.time.LocalTime.of(10, 0));
+		assertThrows(IllegalArgumentException.class, () -> {
+			appointmentService.rescheduleAppointment(booked.getId(), reschedReq, 3L);
+		}, "Lich hen da huy do vang mat khong the doi gio");
 	}
 }

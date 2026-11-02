@@ -15,6 +15,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { AdminAccountPortal } from './pages/AdminAccountPortal'
 import { PatientManagementPage } from './pages/PatientManagementPage'
 import { StaffSchedulingPage } from './pages/StaffSchedulingPage'
+import { AppointmentManagementPage } from './pages/AppointmentManagementPage'
 import type { AuthUser } from './types'
 import './App.css'
 
@@ -89,6 +90,7 @@ function App() {
     if (!user || !user.roles) return '/'
     const roles = user.roles.map((r) => r.toLowerCase())
     if (roles.includes('admin') || roles.includes('manager')) return '/admin/tai-khoan'
+    if (roles.includes('receptionist')) return '/lich-hen'
     return '/quan-ly-benh-nhan'
   }
 
@@ -227,6 +229,11 @@ function App() {
             <Route path="/lich-lam-viec" element={<StaffSchedulingPage currentUser={currentUser} />} />
             <Route path="/dang-ky-ca" element={<StaffSchedulingPage currentUser={currentUser} />} />
             <Route path="/cham-cong" element={<StaffSchedulingPage currentUser={currentUser} />} />
+
+            {/* Quản lý Đặt lịch hẹn khám bệnh (Module 3.4) */}
+            <Route path="/lich-hen" element={<AppointmentManagementPage currentUser={currentUser} />} />
+            <Route path="/dat-lich" element={<AppointmentManagementPage currentUser={currentUser} />} />
+            <Route path="/quan-ly-lich-hen" element={<AppointmentManagementPage currentUser={currentUser} />} />
           </Routes>
         </main>
 

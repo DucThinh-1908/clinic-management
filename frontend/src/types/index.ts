@@ -260,3 +260,91 @@ export interface AttendanceItem {
   notes?: string
 }
 
+export interface DoctorSlotItem {
+  startTime: string
+  endTime: string
+  isAvailable?: boolean
+  available?: boolean
+  shiftName: string
+  doctorId: number
+  doctorName: string
+  departmentName?: string
+  roomName?: string
+}
+
+export interface DoctorSlotSummary {
+  doctorId: number
+  doctorName: string
+  staffCode: string
+  specialty: string
+  departmentId?: number
+  departmentName?: string
+  workDate: string
+  roomName?: string
+  consultationFee?: number
+  slots: DoctorSlotItem[]
+}
+
+export interface DoctorOptionItem {
+  doctorId: number
+  doctorName: string
+  staffCode: string
+  specialty: string
+  departmentId?: number
+  departmentName?: string
+  shiftsToday: string[]
+}
+
+export interface AppointmentReminderItem {
+  id: number
+  appointmentId: number
+  reminderType: 'SMS' | 'EMAIL'
+  recipient: string
+  title: string
+  content: string
+  status: string
+  sentAt: string
+}
+
+export interface AppointmentItem {
+  id: number
+  appointmentCode: string
+  patientId: number
+  patientCode?: string
+  patientName: string
+  patientPhone: string
+  patientEmail?: string
+  patientGender?: string
+  patientDob?: string
+  doctorId?: number
+  doctorName?: string
+  doctorCode?: string
+  doctorSpecialty?: string
+  departmentId?: number
+  departmentName?: string
+  receptionistId?: number
+  receptionistName?: string
+  appointmentDate: string
+  appointmentTime: string
+  symptomsSummary?: string
+  bookingChannel: 'ONLINE_PORTAL' | 'CALL_CENTER' | 'DIRECT_WALKIN'
+  status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
+  notes?: string
+  cancellationReason?: string
+  createdAt?: string
+  updatedAt?: string
+  reminders?: AppointmentReminderItem[]
+}
+
+export interface AppointmentStatsItem {
+  date: string
+  total: number
+  pending: number
+  confirmed: number
+  checkedIn: number
+  completed: number
+  cancelled: number
+  noShow: number
+}
+
+

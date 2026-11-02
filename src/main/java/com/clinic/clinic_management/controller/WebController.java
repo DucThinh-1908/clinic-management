@@ -32,7 +32,12 @@ public class WebController {
         "/admin/nhat-ky-ho-so",
         "/quan-ly-benh-nhan",
         "/ho-so-benh-nhan",
-        "/patient-portal"
+        "/patient-portal",
+        "/quan-ly-nhan-su",
+        "/quan-ly-chuyen-khoa",
+        "/lich-lam-viec",
+        "/dang-ky-ca",
+        "/cham-cong"
     })
     public String forwardToSpa() {
         return "forward:/index.html";

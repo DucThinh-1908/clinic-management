@@ -37,6 +37,9 @@ class ClinicManagementApplicationTests {
 	@Autowired
 	private RecordAccessLogService recordAccessLogService;
 
+	@Autowired
+	private StaffSchedulingService staffSchedulingService;
+
 	@Test
 	@Order(1)
 	void contextLoads() {
@@ -445,5 +448,205 @@ class ClinicManagementApplicationTests {
 		toggleReq.setReason("Mo lai ho so sau khi xac minh xong");
 		var reactivated = patientManagementService.togglePatientActive(1L, toggleReq, 2L, "127.0.0.1");
 		assertTrue(reactivated.getIsActive(), "Ho so goc da duoc mo lai");
+	}
+
+	// =========================================================================
+	// PHAN HE 3.3: NHAN SU VA LICH LAM VIEC (7 UC)
+	// =========================================================================
+
+	// UC-NS01: Them ho so nhan vien (Quan ly)
+	@Test
+	@Order(18)
+	void testUcNs01CreateStaff() {
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.StaffCreateRequest req = new com.clinic.clinic_management.dto.StaffSchedulingDtos.StaffCreateRequest();
+		String randUser = "dr_huong_" + (int)(Math.random() * 90000 + 10000);
+		req.username = randUser;
+		req.password = "123456";
+		req.email = randUser + "@careplusclinic.vn";
+		req.phone = "0977" + (int)(Math.random() * 900000 + 100000);
+		req.roleCode = "doctor";
+		req.fullName = "BS.CKI Le Thi Thu Huong";
+		req.gender = "FEMALE";
+		req.dateOfBirth = java.time.LocalDate.of(1985, 4, 12);
+		req.idCardNumber = "00108500" + (int)(Math.random() * 9000 + 1000);
+		req.address = "Pho Hue, Hai Ba Trung, Ha Noi";
+		req.qualification = "Bac si Chuyen khoa I Nhi";
+		req.departmentId = 2L;
+		req.specialty = "Nhi khoa tong quat & Dinh duong";
+		req.licenseNumber = "CCHN_" + (int)(Math.random() * 900000 + 100000) + "/HN";
+		req.yearsOfExperience = 12;
+
+		// Receptionist cannot create staff
+		assertThrows(SecurityException.class, () -> {
+			staffSchedulingService.createStaff(req, 3L, "127.0.0.1");
+		}, "Le tan khong co quyen them ho so nhan su");
+
+		// Manager (user 2) creates staff
+		var created = staffSchedulingService.createStaff(req, 2L, "127.0.0.1");
+		assertNotNull(created);
+		assertNotNull(created.id);
+		assertEquals("BS.CKI Le Thi Thu Huong", created.fullName);
+		assertEquals("ACTIVE", created.status);
+		assertEquals("Nhi khoa tong quat & Dinh duong", created.specialty);
+	}
+
+	// UC-NS02: Cap nhat / cho nghi viec nhan vien (Quan ly)
+	@Test
+	@Order(19)
+	void testUcNs02UpdateAndResignStaff() {
+		// Get staff 2 (BS An)
+		var staff = staffSchedulingService.getStaffById(2L);
+		assertNotNull(staff);
+
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.StaffUpdateRequest upReq = new com.clinic.clinic_management.dto.StaffSchedulingDtos.StaffUpdateRequest();
+		upReq.fullName = "BS.CKII Nguyen Minh An (Cap nhat)";
+		upReq.qualification = "Bac si Chuyen khoa II Noi Tim Mach";
+		upReq.address = "Quan Dong Da, Ha Noi";
+		upReq.specialty = "Noi tim mach va huyet ap";
+
+		// Update by Manager
+		var updated = staffSchedulingService.updateStaff(2L, upReq, 2L, "127.0.0.1");
+		assertEquals("BS.CKII Nguyen Minh An (Cap nhat)", updated.fullName);
+
+		// Test status change: Resign
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.StaffStatusRequest statusReq = new com.clinic.clinic_management.dto.StaffSchedulingDtos.StaffStatusRequest();
+		statusReq.status = "RESIGNED";
+		statusReq.reason = "Nghi huong che do huu tri";
+
+		var resigned = staffSchedulingService.changeStaffStatus(2L, statusReq, 2L, "127.0.0.1");
+		assertEquals("RESIGNED", resigned.status);
+
+		// Restore to ACTIVE for continuing operations
+		statusReq.status = "ACTIVE";
+		statusReq.reason = "Tiep tuc cong tac chuyen gia";
+		var restored = staffSchedulingService.changeStaffStatus(2L, statusReq, 2L, "127.0.0.1");
+		assertEquals("ACTIVE", restored.status);
+	}
+
+	// UC-NS03: Quan ly chuyen khoa va phong kham (Quan ly)
+	@Test
+	@Order(20)
+	void testUcNs03DepartmentAndClinicRoom() {
+		// Create department
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.DepartmentRequest deptReq = new com.clinic.clinic_management.dto.StaffSchedulingDtos.DepartmentRequest();
+		String deptCode = "K_MAT_" + (int)(Math.random() * 900 + 100);
+		deptReq.code = deptCode;
+		deptReq.name = "Khoa Mat & Khuc Xa";
+		deptReq.location = "Tang 3 - Khu A";
+		deptReq.description = "Kham va do thi luc chuyen sau";
+
+		var dept = staffSchedulingService.createDepartment(deptReq, 2L, "127.0.0.1");
+		assertNotNull(dept);
+		assertEquals(deptCode, dept.code);
+
+		// Create clinic room in this department
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.ClinicRoomRequest roomReq = new com.clinic.clinic_management.dto.StaffSchedulingDtos.ClinicRoomRequest();
+		String roomNum = "P3" + (int)(Math.random() * 90 + 10);
+		roomReq.departmentId = dept.id;
+		roomReq.roomNumber = roomNum;
+		roomReq.name = "Phong Kham Mat Chuyen Khoa";
+		roomReq.roomType = "EXAMINATION";
+
+		var room = staffSchedulingService.createRoom(roomReq, 2L, "127.0.0.1");
+		assertNotNull(room);
+		assertEquals(roomNum, room.roomNumber);
+
+		// Toggle room availability
+		var toggled = staffSchedulingService.toggleRoomAvailability(room.id, 2L, "127.0.0.1");
+		assertFalse(toggled.isAvailable);
+
+		// Toggle back
+		var reEnabled = staffSchedulingService.toggleRoomAvailability(room.id, 2L, "127.0.0.1");
+		assertTrue(reEnabled.isAvailable);
+	}
+
+	// UC-NS04: Phan lich lam viec cho bac si (Quan ly)
+	@Test
+	@Order(21)
+	void testUcNs04ScheduleDoctor() {
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.ScheduleCreateRequest req = new com.clinic.clinic_management.dto.StaffSchedulingDtos.ScheduleCreateRequest();
+		req.staffId = 2L; // Doctor An
+		req.shiftId = 1L; // Morning
+		req.roomId = 1L; // P101
+		req.workDate = java.time.LocalDate.now().plusDays(2);
+		req.note = "Truc phong kham Noi 1 ca sang";
+
+		// Create schedule by Manager
+		var schedule = staffSchedulingService.createSchedule(req, 2L, "127.0.0.1");
+		assertNotNull(schedule);
+		assertEquals(2L, schedule.staffId);
+		assertEquals("SCHEDULED", schedule.status);
+
+		// Duplicate schedule in same shift should be rejected
+		assertThrows(IllegalArgumentException.class, () -> {
+			staffSchedulingService.createSchedule(req, 2L, "127.0.0.1");
+		}, "Khong duoc xep trung ca cho mot nhan su");
+	}
+
+	// UC-NS05: Xem lich lam viec (Bac si, Le tan, Quan ly)
+	@Test
+	@Order(22)
+	void testUcNs05ViewSchedules() {
+		java.time.LocalDate start = java.time.LocalDate.now().minusDays(1);
+		java.time.LocalDate end = java.time.LocalDate.now().plusDays(10);
+
+		// Get all clinic schedules (Receptionist and Manager can filter by department / date)
+		var allSchedules = staffSchedulingService.getSchedules(start, end, null, null, null);
+		assertNotNull(allSchedules);
+		assertFalse(allSchedules.isEmpty(), "Danh sach lich lam viec khong duoc rong");
+
+		// Filter by doctor (Doctor An)
+		var doctorSchedules = staffSchedulingService.getSchedules(start, end, null, 2L, null);
+		assertNotNull(doctorSchedules);
+		assertTrue(doctorSchedules.stream().allMatch(s -> s.staffId.equals(2L)));
+	}
+
+	// UC-NS06: Dang ky nghi / doi ca (Bac si yeu cau - Quan ly duyet)
+	@Test
+	@Order(23)
+	void testUcNs06LeaveAndSwapRequest() {
+		// Doctor An (userId = 4) requests leave
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.LeaveSwapCreateRequest req = new com.clinic.clinic_management.dto.StaffSchedulingDtos.LeaveSwapCreateRequest();
+		req.requestType = "LEAVE";
+		req.leaveDate = java.time.LocalDate.now().plusDays(5);
+		req.reason = "Tham gia hoi thao tim mach quoc te tai TP.HCM";
+
+		var createdReq = staffSchedulingService.createLeaveSwapRequest(req, 4L, "127.0.0.1");
+		assertNotNull(createdReq);
+		assertEquals("PENDING", createdReq.status);
+
+		// Manager reviews and approves
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.LeaveSwapReviewRequest review = new com.clinic.clinic_management.dto.StaffSchedulingDtos.LeaveSwapReviewRequest();
+		review.status = "APPROVED";
+		review.reviewNote = "Dong y cap phep tham du hoi thao khoa hoc";
+
+		var reviewed = staffSchedulingService.reviewLeaveSwapRequest(createdReq.id, review, 2L, "127.0.0.1");
+		assertEquals("APPROVED", reviewed.status);
+		assertEquals("Dong y cap phep tham du hoi thao khoa hoc", reviewed.reviewNote);
+	}
+
+	// UC-NS07: Cham cong (Nhan vien)
+	@Test
+	@Order(24)
+	void testUcNs07AttendanceCheckInCheckOut() {
+		// Staff (userId = 4 - Doctor An) performs check-in
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.AttendanceCheckInRequest checkInReq = new com.clinic.clinic_management.dto.StaffSchedulingDtos.AttendanceCheckInRequest();
+		checkInReq.notes = "Diem danh vao ca truc bang ung dung phong kham";
+
+		var checkIn = staffSchedulingService.checkIn(4L, checkInReq, "127.0.0.1");
+		assertNotNull(checkIn);
+		assertNotNull(checkIn.checkInTime);
+		assertNotNull(checkIn.status);
+
+		// Staff performs check-out
+		com.clinic.clinic_management.dto.StaffSchedulingDtos.AttendanceCheckOutRequest checkOutReq = new com.clinic.clinic_management.dto.StaffSchedulingDtos.AttendanceCheckOutRequest();
+		checkOutReq.notes = "Ket thuc ca kham benh trong ngay";
+
+		var checkOut = staffSchedulingService.checkOut(4L, checkOutReq, "127.0.0.1");
+		assertNotNull(checkOut.checkOutTime);
+
+		// Check attendance history
+		var history = staffSchedulingService.getMyAttendance(4L, java.time.LocalDate.now().minusDays(5), java.time.LocalDate.now());
+		assertFalse(history.isEmpty());
 	}
 }

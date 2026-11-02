@@ -771,5 +771,148 @@ export interface StockTransactionItem {
   transactionDate: string
 }
 
+// =============================================================================
+// PHÂN HỆ 3.9: THANH TOÁN VÀ VIỆN PHÍ (BILLING & PAYMENT)
+// =============================================================================
 
+export interface InvoiceItem {
+  id: number
+  invoiceId: number
+  itemType: 'CONSULTATION_FEE' | 'LAB_SERVICE' | 'MEDICINE' | 'OTHER'
+  referenceId?: number
+  itemName: string
+  unitPrice: number
+  quantity: number
+  subtotal: number
+}
 
+export interface PaymentItem {
+  id: number
+  paymentCode: string
+  invoiceId: number
+  invoiceCode?: string
+  cashierId: number
+  cashierName?: string
+  patientName?: string
+  amount: number
+  paymentMethod: 'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'VNPAY_QR' | 'MOMO'
+  paymentMethodLabel?: string
+  transactionReference?: string
+  status: string
+  paymentTime: string
+  note?: string
+}
+
+export interface InvoiceDetail {
+  id: number
+  invoiceCode: string
+  patientId: number
+  patientName: string
+  patientCode: string
+  patientGender?: string
+  patientPhone?: string
+  patientAddress?: string
+  healthInsuranceNumber?: string
+  cashierId?: number
+  cashierName?: string
+  appointmentId?: number
+  medicalRecordId?: number
+  diagnosis?: string
+  doctorName?: string
+  totalServiceAmount: number
+  totalMedicineAmount: number
+  discountAmount: number
+  insurancePaidAmount: number
+  finalAmount: number
+  status: 'UNPAID' | 'PAID' | 'REFUNDED' | 'CANCELLED'
+  statusLabel?: string
+  createdAt: string
+  paidAt?: string
+  note?: string
+  items?: InvoiceItem[]
+  payments?: PaymentItem[]
+}
+
+export interface InvoicePrintData {
+  invoiceCode: string
+  printDate: string
+  patientName: string
+  patientCode: string
+  patientGender: string
+  patientAge?: number
+  patientPhone: string
+  patientAddress: string
+  healthInsuranceNumber?: string
+  diagnosis?: string
+  doctorName?: string
+  cashierName: string
+  items: InvoiceItem[]
+  totalServiceAmount: number
+  totalMedicineAmount: number
+  discountAmount: number
+  insurancePaidAmount: number
+  finalAmount: number
+  amountInWords: string
+  paymentStatus: string
+  paymentMethod: string
+  note?: string
+}
+
+export interface BillingStats {
+  todayRevenue: number
+  todayPaidInvoicesCount: number
+  pendingInvoicesCount: number
+  totalRevenue: number
+  cashTotal: number
+  transferTotal: number
+  cardTotal: number
+  qrTotal: number
+}
+
+export interface ServicePriceItem {
+  id: number
+  serviceCode: string
+  serviceName: string
+  serviceType: string
+  unitPrice: number
+  description?: string
+  departmentId?: number
+  departmentName?: string
+  isActive: boolean
+  insuranceCoverageRate?: number
+}
+
+export interface SaveServicePriceRequest {
+  id?: number
+  serviceCode: string
+  serviceName: string
+  serviceType: string
+  unitPrice: number
+  description?: string
+  departmentId?: number
+  insuranceCoverageRate?: number
+  isActive?: boolean
+}
+
+export interface ProcessPaymentRequest {
+  invoiceId: number
+  cashierId?: number
+  paymentMethod: 'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'VNPAY_QR' | 'MOMO'
+  paidAmount?: number
+  customerGivenAmount?: number
+  transactionReference?: string
+  note?: string
+}
+
+export interface ApplyInsuranceDiscountRequest {
+  insurancePaidAmount?: number
+  insuranceRate?: number
+  discountAmount?: number
+  discountReason?: string
+}
+
+export interface RefundInvoiceRequest {
+  invoiceId: number
+  actorId?: number
+  reason: string
+}

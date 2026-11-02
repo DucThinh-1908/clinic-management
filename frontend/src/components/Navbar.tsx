@@ -46,6 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   )
 
   // Quyền truy cập các phân hệ nghiệp vụ
+  const canAccessBilling = isCashier || canManage
   const canAccessExamination = isDoctor || isNurse || isTechnician || canManage
   const canAccessPharmacy = isPharmacist || canManage
   const canAccessReception = isReceptionist || isNurse || isCashier || isDoctor || canManage
@@ -55,11 +56,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   const canAccessShiftSwap = isStaff && !canManage
 
   const brandDestination = isStaff
-    ? isDoctor
+    ? isCashier
+      ? '/thu-ngan'
+      : isDoctor
       ? '/kham-benh'
       : isPharmacist
       ? '/kho-thuoc'
-      : isReceptionist || isCashier
+      : isReceptionist
       ? '/tiep-don'
       : isNurse
       ? '/kham-benh'
@@ -149,6 +152,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                   })}
                 >
                   Khám bệnh lâm sàng
+                </NavLink>
+              )}
+
+              {canAccessBilling && (
+                <NavLink
+                  to="/thu-ngan"
+                  style={({ isActive }) => ({
+                    color: isActive ? '#065f46' : '#047857',
+                    fontWeight: 700,
+                    background: isActive ? '#a7f3d0' : '#dcfce7',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    border: '1px solid #6ee7b7',
+                    transition: 'all 0.2s',
+                  })}
+                >
+                  Thu viện phí & Hóa đơn
                 </NavLink>
               )}
 
@@ -647,6 +667,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               {canAccessExamination && (
                 <Link to="/kham-benh" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#059669' }}>
                   Khám bệnh lâm sàng
+                </Link>
+              )}
+              {canAccessBilling && (
+                <Link to="/thu-ngan" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#047857' }}>
+                  Thu viện phí & Hóa đơn
                 </Link>
               )}
               {canAccessPharmacy && (

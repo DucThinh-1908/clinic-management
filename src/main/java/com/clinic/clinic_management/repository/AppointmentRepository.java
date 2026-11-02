@@ -59,4 +59,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             @Param("status") String status,
             @Param("patientId") Long patientId
     );
+
+    List<Appointment> findByAppointmentDateBetweenOrderByAppointmentDateAscAppointmentTimeAsc(LocalDate start, LocalDate end);
+
+    long countByAppointmentDateBetween(LocalDate start, LocalDate end);
+
+    long countByAppointmentDateBetweenAndStatus(LocalDate start, LocalDate end, String status);
 }

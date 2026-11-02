@@ -22,4 +22,8 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Lo
     @Modifying
     @Query("UPDATE MedicalRecord m SET m.patientId = :targetId WHERE m.patientId = :sourceId")
     int reassignPatient(@Param("sourceId") Long sourceId, @Param("targetId") Long targetId);
+
+    List<MedicalRecord> findByCreatedAtBetweenOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+    long countByCreatedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

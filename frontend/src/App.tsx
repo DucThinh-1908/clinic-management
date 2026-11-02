@@ -20,6 +20,7 @@ import { ReceptionQueuePage } from './pages/ReceptionQueuePage'
 import { MedicalExaminationPage } from './pages/MedicalExaminationPage'
 import { PharmacyInventoryPage } from './pages/PharmacyInventoryPage'
 import { BillingPaymentPage } from './pages/BillingPaymentPage'
+import { ReportsAnalyticsPage } from './pages/ReportsAnalyticsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import type { AuthUser } from './types'
 import './App.css'
@@ -491,6 +492,48 @@ function App() {
               element={
                 <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
                   <BillingPaymentPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Phân hệ 3.10: Báo cáo & Thống kê (Quản lý, Bác sĩ, Dược sĩ, Admin) */}
+            <Route
+              path="/bao-cao"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'doctor', 'pharmacist']}>
+                  <ReportsAnalyticsPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/thong-ke"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'doctor', 'pharmacist']}>
+                  <ReportsAnalyticsPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard-quan-ly"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                  <ReportsAnalyticsPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bao-cao-doanh-thu"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                  <ReportsAnalyticsPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bao-cao-duoc"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'pharmacist']}>
+                  <ReportsAnalyticsPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
             />

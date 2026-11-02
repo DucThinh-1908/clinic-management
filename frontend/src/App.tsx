@@ -19,6 +19,7 @@ import { AppointmentManagementPage } from './pages/AppointmentManagementPage'
 import { ReceptionQueuePage } from './pages/ReceptionQueuePage'
 import { MedicalExaminationPage } from './pages/MedicalExaminationPage'
 import { PharmacyInventoryPage } from './pages/PharmacyInventoryPage'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import type { AuthUser } from './types'
 import './App.css'
 
@@ -218,46 +219,237 @@ function App() {
             <Route path="/quen-mat-khau" element={<ForgotPasswordPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-            {/* Quản lý hồ sơ bệnh nhân (Lễ tân, Bác sĩ, Quản lý, Admin & Bệnh nhân) */}
-            <Route path="/quan-ly-benh-nhan" element={<PatientManagementPage currentUser={currentUser} />} />
-            <Route path="/ho-so-benh-nhan" element={<PatientManagementPage currentUser={currentUser} />} />
-            <Route path="/patient-portal" element={<PatientManagementPage currentUser={currentUser} />} />
+            {/* Quản lý hồ sơ bệnh nhân (Bác sĩ, Điều dưỡng, Lễ tân, Thu ngân, Admin, Quản lý & Bệnh nhân) */}
+            <Route
+              path="/quan-ly-benh-nhan"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']}>
+                  <PatientManagementPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ho-so-benh-nhan"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']}>
+                  <PatientManagementPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/patient-portal"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']}>
+                  <PatientManagementPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Quản trị tài khoản, phân quyền & nhật ký hồ sơ */}
-            <Route path="/admin/tai-khoan" element={<AdminAccountPortal currentUser={currentUser} />} />
-            <Route path="/admin/phan-quyen" element={<AdminAccountPortal currentUser={currentUser} />} />
-            <Route path="/admin/nhat-ky-ho-so" element={<AdminAccountPortal currentUser={currentUser} />} />
+            {/* Quản trị tài khoản, phân quyền & nhật ký hồ sơ (Chỉ Quản trị viên & Quản lý) */}
+            <Route
+              path="/admin/tai-khoan"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                  <AdminAccountPortal currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/phan-quyen"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                  <AdminAccountPortal currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/nhat-ky-ho-so"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                  <AdminAccountPortal currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Quản lý nhân sự, chuyên khoa, lịch làm việc, đổi ca & chấm công (Module 3.3) */}
-            <Route path="/quan-ly-nhan-su" element={<StaffSchedulingPage currentUser={currentUser} />} />
-            <Route path="/quan-ly-chuyen-khoa" element={<StaffSchedulingPage currentUser={currentUser} />} />
-            <Route path="/lich-lam-viec" element={<StaffSchedulingPage currentUser={currentUser} />} />
-            <Route path="/dang-ky-ca" element={<StaffSchedulingPage currentUser={currentUser} />} />
-            <Route path="/cham-cong" element={<StaffSchedulingPage currentUser={currentUser} />} />
+            {/* Quản lý nhân sự & Chuyên khoa (Chỉ Quản trị viên & Quản lý) */}
+            <Route
+              path="/quan-ly-nhan-su"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                  <StaffSchedulingPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quan-ly-chuyen-khoa"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                  <StaffSchedulingPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Quản lý Đặt lịch hẹn khám bệnh (Module 3.4) */}
-            <Route path="/lich-hen" element={<AppointmentManagementPage currentUser={currentUser} />} />
-            <Route path="/dat-lich" element={<AppointmentManagementPage currentUser={currentUser} />} />
-            <Route path="/quan-ly-lich-hen" element={<AppointmentManagementPage currentUser={currentUser} />} />
+            {/* Lịch làm việc & Chấm công (Dành riêng cho toàn bộ nhân sự nội bộ) */}
+            <Route
+              path="/lich-lam-viec"
+              element={
+                <ProtectedRoute currentUser={currentUser} requireStaff={true}>
+                  <StaffSchedulingPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cham-cong"
+              element={
+                <ProtectedRoute currentUser={currentUser} requireStaff={true}>
+                  <StaffSchedulingPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dang-ky-ca"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'pharmacist', 'receptionist', 'cashier', 'admin', 'manager']}>
+                  <StaffSchedulingPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Tiếp đón và xếp hàng khám bệnh (Module 3.5) */}
-            <Route path="/tiep-don" element={<ReceptionQueuePage currentUser={currentUser} />} />
-            <Route path="/hang-cho" element={<ReceptionQueuePage currentUser={currentUser} />} />
-            <Route path="/tiep-don-xep-hang" element={<ReceptionQueuePage currentUser={currentUser} />} />
-            <Route path="/man-hinh-goi-so" element={<ReceptionQueuePage currentUser={currentUser} />} />
+            {/* Quản lý Đặt lịch hẹn khám bệnh */}
+            <Route
+              path="/lich-hen"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']}>
+                  <AppointmentManagementPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dat-lich"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']}>
+                  <AppointmentManagementPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quan-ly-lich-hen"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']}>
+                  <AppointmentManagementPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Khám bệnh lâm sàng & Cận lâm sàng (Module 3.6 - 8 Use Cases) */}
-            <Route path="/kham-benh" element={<MedicalExaminationPage currentUser={currentUser} />} />
-            <Route path="/phong-kham-bac-si" element={<MedicalExaminationPage currentUser={currentUser} />} />
-            <Route path="/phong-kham" element={<MedicalExaminationPage currentUser={currentUser} />} />
-            <Route path="/ghi-nhan-sinh-hieu" element={<MedicalExaminationPage currentUser={currentUser} />} />
+            {/* Tiếp đón và xếp hàng khám bệnh (Lễ tân, Điều dưỡng, Thu ngân, Bác sĩ, Quản lý, Admin) */}
+            <Route
+              path="/tiep-don"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']}>
+                  <ReceptionQueuePage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hang-cho"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']}>
+                  <ReceptionQueuePage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tiep-don-xep-hang"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']}>
+                  <ReceptionQueuePage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/man-hinh-goi-so"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']}>
+                  <ReceptionQueuePage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Kê đơn & Kho thuốc Dược sĩ (Module 3.8 - 10 Use Cases) */}
-            <Route path="/kho-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
-            <Route path="/duoc-kho-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
-            <Route path="/cap-phat-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
-            <Route path="/nha-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
-            <Route path="/ke-don-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
+            {/* Khám bệnh lâm sàng & Cận lâm sàng (Bác sĩ, Điều dưỡng, Kỹ thuật viên, Quản lý, Admin) */}
+            <Route
+              path="/kham-benh"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']}>
+                  <MedicalExaminationPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/phong-kham-bac-si"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']}>
+                  <MedicalExaminationPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/phong-kham"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']}>
+                  <MedicalExaminationPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ghi-nhan-sinh-hieu"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']}>
+                  <MedicalExaminationPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Kê đơn & Kho thuốc Dược sĩ (Dược sĩ, Quản lý, Admin) */}
+            <Route
+              path="/kho-thuoc"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                  <PharmacyInventoryPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/duoc-kho-thuoc"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                  <PharmacyInventoryPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cap-phat-thuoc"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                  <PharmacyInventoryPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/nha-thuoc"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                  <PharmacyInventoryPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ke-don-thuoc"
+              element={
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                  <PharmacyInventoryPage currentUser={currentUser} />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </main>
 

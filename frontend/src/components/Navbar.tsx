@@ -80,24 +80,54 @@ export const Navbar: React.FC<NavbarProps> = ({
               <NavLink to="/dich-vu" style={navLinkStyle}>Dịch vụ & Gói khám</NavLink>
               <NavLink to="/lien-he" style={navLinkStyle}>Liên hệ</NavLink>
               {isPatient && (
-                <NavLink
-                  to="/ho-so-benh-nhan"
-                  style={({ isActive }) => ({
-                    color: isActive ? 'var(--primary-dark)' : 'var(--primary)',
-                    fontWeight: 700,
-                    background: isActive ? '#e0f2f1' : 'var(--soft)',
-                    padding: '6px 14px',
-                    borderRadius: '20px',
-                    border: '1px solid var(--primary-light)',
-                    transition: 'all 0.2s',
-                  })}
-                >
-                  Hồ sơ bệnh nhân
-                </NavLink>
+                <>
+                  <NavLink
+                    to="/ho-so-benh-nhan"
+                    style={({ isActive }) => ({
+                      color: isActive ? 'var(--primary-dark)' : 'var(--primary)',
+                      fontWeight: 700,
+                      background: isActive ? '#e0f2f1' : 'var(--soft)',
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      border: '1px solid var(--primary-light)',
+                      transition: 'all 0.2s',
+                    })}
+                  >
+                    Hồ sơ bệnh nhân
+                  </NavLink>
+                  <NavLink
+                    to="/lich-hen"
+                    style={({ isActive }) => ({
+                      color: isActive ? '#0369a1' : '#0284c7',
+                      fontWeight: 700,
+                      background: isActive ? '#e0f2fe' : '#f0f9ff',
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      border: '1px solid #bae6fd',
+                      transition: 'all 0.2s',
+                    })}
+                  >
+                    Lịch hẹn của tôi
+                  </NavLink>
+                </>
               )}
             </>
           ) : (
             <>
+              <NavLink
+                to="/lich-hen"
+                style={({ isActive }) => ({
+                  color: isActive ? '#9a3412' : '#ea580c',
+                  fontWeight: 700,
+                  background: isActive ? '#ffedd5' : '#fff7ed',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid #fed7aa',
+                  transition: 'all 0.2s',
+                })}
+              >
+                Lịch hẹn khám
+              </NavLink>
               <NavLink
                 to="/quan-ly-benh-nhan"
                 style={({ isActive }) => ({
@@ -301,22 +331,48 @@ export const Navbar: React.FC<NavbarProps> = ({
                           Đăng ký nghỉ / Đổi ca
                         </Link>
                       )}
+                      <Link
+                        to="/lich-hen"
+                        onClick={() => setUserDropdownOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '10px 16px',
+                          fontSize: '13.5px',
+                          color: '#ea580c',
+                        }}
+                      >
+                        Đặt & Quản lý lịch hẹn
+                      </Link>
                     </>
                   )}
 
                   {isPatient && (
-                    <Link
-                      to="/ho-so-benh-nhan"
-                      onClick={() => setUserDropdownOpen(false)}
-                      style={{
-                        display: 'block',
-                        padding: '10px 16px',
-                        fontSize: '13.5px',
-                        color: 'var(--primary-dark)',
-                      }}
-                    >
-                      Hồ sơ sức khỏe của tôi
-                    </Link>
+                    <>
+                      <Link
+                        to="/ho-so-benh-nhan"
+                        onClick={() => setUserDropdownOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '10px 16px',
+                          fontSize: '13.5px',
+                          color: 'var(--primary-dark)',
+                        }}
+                      >
+                        Hồ sơ sức khỏe của tôi
+                      </Link>
+                      <Link
+                        to="/lich-hen"
+                        onClick={() => setUserDropdownOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '10px 16px',
+                          fontSize: '13.5px',
+                          color: '#0284c7',
+                        }}
+                      >
+                        Lịch hẹn khám của tôi
+                      </Link>
+                    </>
                   )}
 
                   {canManage && (
@@ -442,13 +498,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Link to="/dich-vu" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650 }}>Dịch vụ & Gói khám</Link>
               <Link to="/lien-he" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650 }}>Liên hệ</Link>
               {isPatient && (
-                <Link to="/ho-so-benh-nhan" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: 'var(--primary)' }}>
-                  Hồ sơ bệnh nhân
-                </Link>
+                <>
+                  <Link to="/ho-so-benh-nhan" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: 'var(--primary)' }}>
+                    Hồ sơ bệnh nhân
+                  </Link>
+                  <Link to="/lich-hen" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#0369a1' }}>
+                    Lịch hẹn khám của tôi
+                  </Link>
+                </>
               )}
             </>
           ) : (
             <>
+              <Link to="/lich-hen" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#ea580c' }}>
+                Đặt & Quản lý lịch hẹn
+              </Link>
               <Link to="/quan-ly-benh-nhan" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: 'var(--primary)' }}>
                 Quản lý hồ sơ bệnh nhân
               </Link>

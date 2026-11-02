@@ -222,7 +222,7 @@ CREATE TABLE attendances (
     check_in_time TIMESTAMP NULL,
     check_out_time TIMESTAMP NULL,
     status ENUM('ON_TIME', 'LATE', 'EARLY_LEAVE', 'LATE_AND_EARLY_LEAVE', 'ABSENT') DEFAULT 'ON_TIME',
-    notes VARCHAR(255) NULL,
+    notes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_staff_date (staff_id, attendance_date),
@@ -272,6 +272,8 @@ CREATE TABLE appointments (
     appointment_time TIME NOT NULL,
     symptoms_summary TEXT COMMENT 'Lý do khám / Triệu chứng ban đầu',
     booking_channel ENUM('ONLINE_PORTAL', 'CALL_CENTER', 'DIRECT_WALKIN') DEFAULT 'ONLINE_PORTAL',
+    notes TEXT COMMENT 'Ghi chú bổ sung',
+    cancellation_reason VARCHAR(255) COMMENT 'Lý do hủy lịch hoặc ghi chú vắng khám',
     status ENUM('PENDING', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'CANCELLED', 'NO_SHOW') DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -279,6 +281,19 @@ CREATE TABLE appointments (
     CONSTRAINT fk_app_doctor FOREIGN KEY (doctor_id) REFERENCES staff(id) ON DELETE SET NULL,
     CONSTRAINT fk_app_dept FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
     CONSTRAINT fk_app_rec FOREIGN KEY (receptionist_id) REFERENCES staff(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Bảng lưu vết thông báo nhắc lịch hẹn qua SMS / Email (UC-LH06)
+CREATE TABLE appointment_reminders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    appointment_id BIGINT NOT NULL,
+    reminder_type ENUM('SMS', 'EMAIL') NOT NULL,
+    recipient VARCHAR(150) NOT NULL COMMENT 'Số điện thoại hoặc Email người nhận',
+    title VARCHAR(200) NOT NULL COMMENT 'Tiêu đề thông báo',
+    content TEXT NOT NULL COMMENT 'Nội dung nhắc nhở ngày giờ, bác sĩ',
+    status ENUM('PENDING', 'SENT', 'FAILED') DEFAULT 'SENT',
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_rem_app FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Bảng phiếu số thứ tự tiếp đón & hàng đợi phòng khám (Queue Tickets)

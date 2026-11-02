@@ -18,6 +18,7 @@ import { StaffSchedulingPage } from './pages/StaffSchedulingPage'
 import { AppointmentManagementPage } from './pages/AppointmentManagementPage'
 import { ReceptionQueuePage } from './pages/ReceptionQueuePage'
 import { MedicalExaminationPage } from './pages/MedicalExaminationPage'
+import { PharmacyInventoryPage } from './pages/PharmacyInventoryPage'
 import type { AuthUser } from './types'
 import './App.css'
 
@@ -92,6 +93,7 @@ function App() {
     if (!user || !user.roles) return '/'
     const roles = user.roles.map((r) => r.toLowerCase())
     if (roles.includes('admin') || roles.includes('manager')) return '/admin/tai-khoan'
+    if (roles.includes('pharmacist')) return '/kho-thuoc'
     if (roles.includes('doctor') || roles.includes('nurse')) return '/kham-benh'
     if (roles.includes('receptionist')) return '/tiep-don'
     return '/quan-ly-benh-nhan'
@@ -249,6 +251,13 @@ function App() {
             <Route path="/phong-kham-bac-si" element={<MedicalExaminationPage currentUser={currentUser} />} />
             <Route path="/phong-kham" element={<MedicalExaminationPage currentUser={currentUser} />} />
             <Route path="/ghi-nhan-sinh-hieu" element={<MedicalExaminationPage currentUser={currentUser} />} />
+
+            {/* Kê đơn & Kho thuốc Dược sĩ (Module 3.8 - 10 Use Cases) */}
+            <Route path="/kho-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
+            <Route path="/duoc-kho-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
+            <Route path="/cap-phat-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
+            <Route path="/nha-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
+            <Route path="/ke-don-thuoc" element={<PharmacyInventoryPage currentUser={currentUser} />} />
           </Routes>
         </main>
 

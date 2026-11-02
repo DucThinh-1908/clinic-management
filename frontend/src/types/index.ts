@@ -559,4 +559,217 @@ export interface MedicalSummaryPrintData {
   status: string
 }
 
+// =============================================================================
+// PHÂN HỆ 3.8: KÊ ĐƠN VÀ KHO THUỐC (10 USE CASES)
+// =============================================================================
+
+export interface MedicineCategoryItem {
+  id: number
+  name: string
+  code: string
+}
+
+export interface SupplierItem {
+  id: number
+  name: string
+  taxCode?: string
+  phone?: string
+  email?: string
+  address?: string
+  isActive: boolean
+  batchCount?: number
+}
+
+export interface MedicineItem {
+  id: number
+  categoryId: number
+  categoryName?: string
+  code: string
+  medicineCode?: string
+  brandName: string
+  activeIngredient: string
+  dosageForm: string
+  unit: string
+  dispensingUnit?: string
+  usageInstructions?: string
+  sellingPrice: number
+  unitRetailPrice?: number
+  isPrescriptionRequired: boolean
+  contraindications?: string
+  isActive: boolean
+  totalAvailableQuantity?: number
+  totalStock?: number
+  concentration?: string
+}
+
+export interface MedicineBatchItem {
+  id: number
+  medicineId: number
+  medicineCode?: string
+  brandName?: string
+  activeIngredient?: string
+  unit?: string
+  supplierId?: number
+  supplierName?: string
+  batchNumber: string
+  manufactureDate?: string
+  expiryDate: string
+  importPrice: number
+  quantityImported: number
+  quantityAvailable: number
+  createdAt: string
+  isExpired: boolean
+  daysUntilExpiry: number
+}
+
+export interface PrescriptionItemDetail {
+  id?: number
+  medicineId: number
+  medicineCode?: string
+  brandName?: string
+  medicineName?: string
+  activeIngredient?: string
+  dosageForm?: string
+  unit?: string
+  quantity: number
+  quantityPrescribed?: number
+  morningDose?: string
+  noonDose?: string
+  afternoonDose?: string
+  nightDose?: string
+  instructions?: string
+  usageInstructions?: string
+  durationDays?: number
+  unitPrice: number
+  totalAmount: number
+}
+
+export interface PrescriptionItem {
+  id: number
+  prescriptionCode: string
+  medicalRecordId?: number
+  doctorId: number
+  doctorName?: string
+  patientId: number
+  patientName?: string
+  patientCode?: string
+  patientPhone?: string
+  diagnosis: string
+  usageNote?: string
+  status: 'PENDING_PAYMENT' | 'PAID' | 'DISPENSED' | 'CANCELLED' | string
+  createdAt: string
+  prescriptionDate?: string
+  totalAmount: number
+  totalPrice?: number
+  itemCount?: number
+  statusDesc?: string
+  items: PrescriptionItemDetail[]
+}
+
+export interface AllergyWarningItem {
+  medicineId: number
+  brandName: string
+  activeIngredient: string
+  matchedAllergyKeyword: string
+  severity: 'HIGH' | 'MEDIUM'
+  message: string
+}
+
+export interface AllergyAlertResponse {
+  hasRisk: boolean
+  hasAllergyAlert?: boolean
+  patientAllergies?: string
+  warnings: AllergyWarningItem[]
+  alertItems?: AllergyWarningItem[]
+  warningMessage?: string
+}
+
+export interface PrescriptionPrintData {
+  clinicName: string
+  clinicAddress: string
+  clinicHotline: string
+  prescriptionId: number
+  prescriptionCode: string
+  createdAt: string
+  prescriptionDate?: string
+  recordCode?: string
+  patientId: number
+  patientCode: string
+  patientName: string
+  gender: string
+  patientGender?: string
+  age?: number
+  patientAge?: number
+  dateOfBirth?: string
+  patientDateOfBirth?: string
+  phone: string
+  patientPhone?: string
+  address?: string
+  patientAddress?: string
+  healthInsuranceNumber?: string
+  drugAllergies?: string
+  diagnosis: string
+  icd10Code?: string
+  doctorAdvice?: string
+  followUpDate?: string
+  doctorName?: string
+  pharmacistName?: string
+  dispensedByName?: string
+  totalAmount: number
+  items: PrescriptionItemDetail[]
+}
+
+export interface DispensationItem {
+  id: number
+  dispensationCode: string
+  prescriptionId: number
+  prescriptionCode?: string
+  pharmacistId: number
+  pharmacistName?: string
+  patientName?: string
+  dispensedAt: string
+  note?: string
+}
+
+export interface StockAlertItem {
+  alertType: 'LOW_STOCK' | 'NEAR_EXPIRY' | 'EXPIRED'
+  medicineId?: number
+  medicineCode?: string
+  brandName?: string
+  activeIngredient?: string
+  unit?: string
+  batchId?: number
+  batchNumber?: string
+  quantityAvailable: number
+  threshold?: number
+  expiryDate?: string
+  daysRemaining?: number
+  severity: 'CRITICAL' | 'WARNING'
+  message: string
+}
+
+export interface StockAlertOverview {
+  lowStockCount: number
+  nearExpiryCount: number
+  expiredCount: number
+  alerts: StockAlertItem[]
+}
+
+export interface StockTransactionItem {
+  id: number
+  batchId: number
+  batchNumber?: string
+  medicineId?: number
+  medicineCode?: string
+  brandName?: string
+  unit?: string
+  pharmacistId: number
+  pharmacistName?: string
+  transactionType: 'IMPORT' | 'DISPENSE' | 'DISPOSE' | 'AUDIT_ADJUSTMENT'
+  quantity: number
+  reason?: string
+  transactionDate: string
+}
+
+
 

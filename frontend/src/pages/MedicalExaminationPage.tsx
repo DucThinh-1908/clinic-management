@@ -6,7 +6,11 @@ import type {
   ClinicalServiceItem,
   LabOrderItem,
   MedicalRecordItem,
-  MedicalSummaryPrintData
+  MedicalSummaryPrintData,
+  MedicineItem,
+  PrescriptionItem,
+  PrescriptionPrintData,
+  AllergyAlertResponse
 } from '../types'
 
 interface MedicalExaminationPageProps {
@@ -42,7 +46,7 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
 
   // Phiên khám hiện tại
   const [currentRecord, setCurrentRecord] = useState<MedicalRecordItem | null>(null)
-  const [activeTab, setActiveTab] = useState<'vitals' | 'clinical' | 'lab' | 'history' | 'followup'>(
+  const [activeTab, setActiveTab] = useState<'vitals' | 'clinical' | 'lab' | 'prescription' | 'history' | 'followup'>(
     isNurseRole ? 'vitals' : 'clinical'
   )
 
@@ -126,6 +130,48 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
     conclusion: ''
   })
 
+  // =========================================================================
+  // KÊ ĐƠN THUỐC (UC-DT01, UC-DT02, UC-DT03)
+  // =========================================================================
+  const [availableMedicines, setAvailableMedicines] = useState<MedicineItem[]>([])
+  const [patientPrescriptions, setPatientPrescriptions] = useState<PrescriptionItem[]>([])
+  const [prescriptionItems, setPrescriptionItems] = useState<{
+    medicineId: number
+    medicineName: string
+    activeIngredient: string
+    quantityPrescribed: number
+    unit: string
+    unitPrice: number
+    morningDose: string
+    noonDose: string
+    afternoonDose: string
+    nightDose: string
+    usageInstructions: string
+    durationDays: number
+  }[]>([])
+  const [itemAddForm, setItemAddForm] = useState({
+    medicineId: 0,
+    quantityPrescribed: 10,
+    morningDose: '1',
+    noonDose: '0',
+    afternoonDose: '1',
+    nightDose: '0',
+    usageInstructions: 'Uống sau bữa ăn no',
+    durationDays: 5
+  })
+  const [prescriptionNotes, setPrescriptionNotes] = useState<string>('')
+  const [savingPrescription, setSavingPrescription] = useState<boolean>(false)
+
+  // Cảnh báo dị ứng thuốc (UC-DT02)
+  const [allergyAlert, setAllergyAlert] = useState<AllergyAlertResponse | null>(null)
+  const [allergyModalOpen, setAllergyModalOpen] = useState<boolean>(false)
+  const [overrideAllergyReason, setOverrideAllergyReason] = useState<string>('')
+
+  // In đơn thuốc chuẩn A4 (UC-DT03)
+  const [prescriptionPrintModalOpen, setPrescriptionPrintModalOpen] = useState<boolean>(false)
+  const [prescriptionPrintData, setPrescriptionPrintData] = useState<PrescriptionPrintData | null>(null)
+  const [, setLoadingPrescriptionPrint] = useState<boolean>(false)
+
   // Thông báo
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
 
@@ -133,6 +179,7 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
   useEffect(() => {
     loadRooms()
     loadClinicalServices()
+    loadAvailableMedicines()
   }, [])
 
   // Tải hàng đợi khi đổi phòng
@@ -148,6 +195,7 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
       loadLatestVitals(activeTicket.patientId)
       loadVitalHistory(activeTicket.patientId)
       loadPatientHistory(activeTicket.patientId)
+      loadPatientPrescriptions(activeTicket.patientId)
 
       // Chỉ khởi tạo lại biểu mẫu khi chuyển hẳn sang một bệnh nhân KHÁC
       if (previousTicketIdRef.current !== activeTicket.id) {
@@ -164,6 +212,9 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
         })
         setCurrentRecord(null)
         setLabOrders([])
+        setPrescriptionItems([])
+        setAllergyAlert(null)
+        setOverrideAllergyReason('')
       }
     }
   }, [activeTicket?.id])
@@ -199,6 +250,226 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
       }
     } catch {
       // Giữ mặc định
+    }
+  }
+
+  // =========================================================================
+  // LOGIC KÊ ĐƠN THUỐC & CẢNH BÁO DỊ ỨNG (UC-DT01, UC-DT02, UC-DT03)
+  // =========================================================================
+  const loadAvailableMedicines = async () => {
+    try {
+      const res = await fetch('/api/pharmacy/medicines')
+      if (res.ok) {
+        const data: MedicineItem[] = await res.json()
+        setAvailableMedicines(data)
+        if (data.length > 0 && itemAddForm.medicineId === 0) {
+          setItemAddForm(prev => ({ ...prev, medicineId: data[0].id }))
+        }
+      }
+    } catch {
+      // Giữ mặc định
+    }
+  }
+
+  const loadPatientPrescriptions = async (patientId: number) => {
+    try {
+      const res = await fetch(`/api/pharmacy/prescriptions/patient/${patientId}`)
+      if (res.ok) {
+        const data: PrescriptionItem[] = await res.json()
+        setPatientPrescriptions(data)
+      }
+    } catch {
+      // Giữ mặc định
+    }
+  }
+
+  const handleCheckAllergiesForIds = async (medIds: number[]): Promise<AllergyAlertResponse | null> => {
+    if (!activeTicket || medIds.length === 0) return null
+    try {
+      const res = await fetch('/api/pharmacy/check-allergies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: activeTicket.patientId,
+          medicineIds: medIds
+        })
+      })
+      if (res.ok) {
+        const alertData: AllergyAlertResponse = await res.json()
+        return alertData
+      }
+    } catch {
+      // ignore
+    }
+    return null
+  }
+
+  const handleAddMedicineItem = async () => {
+    const med = availableMedicines.find(m => m.id === Number(itemAddForm.medicineId))
+    if (!med) {
+      showAlert('Vui lòng chọn thuốc hợp lệ', 'error')
+      return
+    }
+    if (itemAddForm.quantityPrescribed <= 0) {
+      showAlert('Số lượng kê đơn phải lớn hơn 0', 'error')
+      return
+    }
+
+    // Kiểm tra xem thuốc đã có trong đơn chưa
+    const existing = prescriptionItems.find(i => i.medicineId === med.id)
+    if (existing) {
+      showAlert(`Thuốc ${med.brandName} đã có trong đơn. Bạn có thể xóa và thêm lại nếu muốn chỉnh số lượng.`, 'info')
+      return
+    }
+
+    // Ghép hướng dẫn sử dụng chi tiết
+    const medUnit = med.dispensingUnit || med.unit || 'Viên'
+    const medPrice = med.unitRetailPrice || med.sellingPrice || 0
+    let fullUsage = itemAddForm.usageInstructions
+    const doseParts: string[] = []
+    if (itemAddForm.morningDose && itemAddForm.morningDose !== '0') doseParts.push(`Sáng: ${itemAddForm.morningDose} ${medUnit}`)
+    if (itemAddForm.noonDose && itemAddForm.noonDose !== '0') doseParts.push(`Trưa: ${itemAddForm.noonDose} ${medUnit}`)
+    if (itemAddForm.afternoonDose && itemAddForm.afternoonDose !== '0') doseParts.push(`Chiều: ${itemAddForm.afternoonDose} ${medUnit}`)
+    if (itemAddForm.nightDose && itemAddForm.nightDose !== '0') doseParts.push(`Tối: ${itemAddForm.nightDose} ${medUnit}`)
+    if (doseParts.length > 0) {
+      fullUsage = `${doseParts.join(', ')}. ${fullUsage}`
+    }
+
+    const newItem = {
+      medicineId: med.id,
+      medicineName: `${med.brandName}${med.concentration ? ` (${med.concentration})` : ''}`,
+      activeIngredient: med.activeIngredient,
+      quantityPrescribed: Number(itemAddForm.quantityPrescribed),
+      unit: medUnit,
+      unitPrice: medPrice,
+      morningDose: itemAddForm.morningDose,
+      noonDose: itemAddForm.noonDose,
+      afternoonDose: itemAddForm.afternoonDose,
+      nightDose: itemAddForm.nightDose,
+      usageInstructions: fullUsage,
+      durationDays: Number(itemAddForm.durationDays) || 5
+    }
+
+    const updatedList = [...prescriptionItems, newItem]
+    setPrescriptionItems(updatedList)
+
+    // Kiểm tra dị ứng ngay lập tức
+    const alertResult = await handleCheckAllergiesForIds(updatedList.map(i => i.medicineId))
+    if (alertResult && (alertResult.hasRisk || alertResult.hasAllergyAlert)) {
+      setAllergyAlert(alertResult)
+      setAllergyModalOpen(true)
+      showAlert('CẢNH BÁO DỊ ỨNG: Bệnh nhân có tiền sử dị ứng với thành phần thuốc vừa kê!', 'error')
+    } else {
+      showAlert(`Đã thêm ${med.brandName} vào đơn thuốc`)
+    }
+  }
+
+  const handleRemovePrescriptionItem = async (index: number) => {
+    const updated = prescriptionItems.filter((_, idx) => idx !== index)
+    setPrescriptionItems(updated)
+    if (updated.length > 0) {
+      const alertResult = await handleCheckAllergiesForIds(updated.map(i => i.medicineId))
+      if (alertResult && (alertResult.hasRisk || alertResult.hasAllergyAlert)) {
+        setAllergyAlert(alertResult)
+      } else {
+        setAllergyAlert(null)
+      }
+    } else {
+      setAllergyAlert(null)
+    }
+  }
+
+  const handleSavePrescription = async () => {
+    if (!activeTicket) {
+      showAlert('Chưa chọn bệnh nhân', 'error')
+      return
+    }
+    if (prescriptionItems.length === 0) {
+      showAlert('Đơn thuốc chưa có danh mục thuốc nào', 'error')
+      return
+    }
+
+    // Nếu có cảnh báo dị ứng mà chưa nhập lý do xác nhận
+    const hasRiskAlert = Boolean(allergyAlert && (allergyAlert.hasRisk || allergyAlert.hasAllergyAlert))
+    if (hasRiskAlert && !overrideAllergyReason.trim()) {
+      setAllergyModalOpen(true)
+      showAlert('Cần xác nhận lý do lâm sàng khi kê đơn có cảnh báo dị ứng!', 'error')
+      return
+    }
+
+    setSavingPrescription(true)
+    try {
+      const diagnosisText =
+        (clinicalForm.finalDiagnosis || '').trim() ||
+        (clinicalForm.initialDiagnosis || '').trim() ||
+        'Kê đơn điều trị ngoại trú'
+
+      const doctorId = currentUser?.id || 2
+      const warningText = allergyAlert?.warningMessage || allergyAlert?.warnings?.map(w => w.message).join('; ') || null
+      const payload = {
+        medicalRecordId: currentRecord ? currentRecord.id : null,
+        patientId: activeTicket.patientId,
+        doctorId: doctorId,
+        diagnosis: diagnosisText,
+        icd10Code: clinicalForm.icd10Code || null,
+        doctorAdvice: prescriptionNotes || clinicalForm.doctorAdvice || null,
+        followUpDate: clinicalForm.followUpDate || null,
+        hasAllergyAlert: hasRiskAlert,
+        allergyAlertMessage: warningText,
+        overrideAllergyReason: overrideAllergyReason.trim() || null,
+        items: prescriptionItems.map(i => ({
+          medicineId: i.medicineId,
+          quantityPrescribed: i.quantityPrescribed,
+          unit: i.unit,
+          unitPrice: i.unitPrice,
+          morningDose: i.morningDose,
+          noonDose: i.noonDose,
+          afternoonDose: i.afternoonDose,
+          nightDose: i.nightDose,
+          usageInstructions: i.usageInstructions,
+          durationDays: i.durationDays
+        }))
+      }
+
+      const res = await fetch('/api/pharmacy/prescriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (res.ok) {
+        const savedPrescription: PrescriptionItem = await res.json()
+        showAlert(`Đã lưu đơn thuốc ${savedPrescription.prescriptionCode} thành công!`)
+        setPrescriptionItems([])
+        setAllergyAlert(null)
+        setOverrideAllergyReason('')
+        loadPatientPrescriptions(activeTicket.patientId)
+      } else {
+        const err = await res.json().catch(() => null)
+        showAlert(err?.message || 'Không thể lưu đơn thuốc', 'error')
+      }
+    } catch {
+      showAlert('Lỗi kết nối khi lưu đơn thuốc', 'error')
+    } finally {
+      setSavingPrescription(false)
+    }
+  }
+
+  const handleOpenPrescriptionPrintModal = async (prescriptionId: number) => {
+    setLoadingPrescriptionPrint(true)
+    try {
+      const res = await fetch(`/api/pharmacy/prescriptions/${prescriptionId}/print`)
+      if (res.ok) {
+        const data: PrescriptionPrintData = await res.json()
+        setPrescriptionPrintData(data)
+        setPrescriptionPrintModalOpen(true)
+      } else {
+        showAlert('Không thể tải dữ liệu in đơn thuốc', 'error')
+      }
+    } catch {
+      showAlert('Lỗi kết nối khi in đơn thuốc', 'error')
+    } finally {
+      setLoadingPrescriptionPrint(false)
     }
   }
 
@@ -1402,6 +1673,38 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
 
                   <button
                     type="button"
+                    onClick={() => {
+                      setActiveTab('prescription')
+                      if (activeTicket) loadPatientPrescriptions(activeTicket.patientId)
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      borderBottom: activeTab === 'prescription' ? '3px solid var(--primary)' : '3px solid transparent',
+                      color: activeTab === 'prescription' ? 'var(--primary-dark)' : '#64748b',
+                      fontWeight: 750,
+                      fontSize: '13.5px',
+                      padding: '14px 4px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span>Kê đơn thuốc</span>
+                    {prescriptionItems.length > 0 ? (
+                      <span style={{ background: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
+                        {prescriptionItems.length} loại
+                      </span>
+                    ) : patientPrescriptions.length > 0 ? (
+                      <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
+                        {patientPrescriptions.length} đơn cũ
+                      </span>
+                    ) : null}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setActiveTab('followup')}
                     style={{
                       background: 'none',
@@ -2568,6 +2871,485 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
                     </div>
                   )}
 
+                  {/* TAB: KÊ ĐƠN THUỐC (UC-DT01, UC-DT02, UC-DT03) */}
+                  {activeTab === 'prescription' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <div style={{ paddingBottom: '12px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                            Kê Đơn Thuốc Điều Trị Ngoại Trú
+                          </h3>
+                          <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                            Kê đơn theo hoạt chất, kiểm tra tự động dị ứng thuốc (Allergy Check), tự động tính liều và xuất mẫu in A4
+                          </p>
+                        </div>
+
+                        <div style={{ fontSize: '13px', color: '#334155', background: '#f1f5f9', padding: '6px 12px', borderRadius: '8px' }}>
+                          Chẩn đoán phiên khám:{' '}
+                          <strong style={{ color: '#0f172a' }}>
+                            {clinicalForm.finalDiagnosis.trim() || clinicalForm.initialDiagnosis.trim() || 'Chưa nhập chẩn đoán'}
+                          </strong>
+                          {clinicalForm.icd10Code && <span style={{ color: '#64748b' }}> ({clinicalForm.icd10Code})</span>}
+                        </div>
+                      </div>
+
+                      {/* KHUNG CẢNH BÁO DỊ ỨNG NẾU CÓ */}
+                      {allergyAlert && allergyAlert.hasAllergyAlert && (
+                        <div
+                          style={{
+                            background: '#fef2f2',
+                            border: '1.5px solid #f87171',
+                            borderRadius: '12px',
+                            padding: '16px 20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span
+                                style={{
+                                  background: '#dc2626',
+                                  color: '#ffffff',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  padding: '3px 8px',
+                                  borderRadius: '6px'
+                                }}
+                              >
+                                CẢNH BÁO NGUY HIỂM
+                              </span>
+                              <strong style={{ color: '#991b1b', fontSize: '14px' }}>
+                                Phát hiện xung đột dị ứng thuốc với tiền sử bệnh nhân!
+                              </strong>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setAllergyModalOpen(true)}
+                              style={{
+                                background: '#dc2626',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 14px',
+                                borderRadius: '6px',
+                                fontSize: '12.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Xử lý cảnh báo
+                            </button>
+                          </div>
+
+                          <div style={{ fontSize: '13px', color: '#7f1d1d' }}>
+                            {allergyAlert.warningMessage || allergyAlert.warnings?.map(w => w.message).join('; ')}
+                          </div>
+
+                          {overrideAllergyReason ? (
+                            <div style={{ fontSize: '12px', color: '#15803d', background: '#dcfce7', padding: '6px 10px', borderRadius: '6px' }}>
+                              Đã xác nhận lý do lâm sàng: <em>&quot;{overrideAllergyReason}&quot;</em>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '12px', color: '#b91c1c', fontStyle: 'italic' }}>
+                              * Bác sĩ bắt buộc phải xác nhận lý do lâm sàng nếu vẫn quyết định chỉ định thuốc này.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* BIỂU MẪU CHỌN & THÊM THUỐC VÀO ĐƠN */}
+                      <div
+                        style={{
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          padding: '18px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '14px'
+                        }}
+                      >
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                          Thêm thuốc vào đơn
+                        </h4>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                              Chọn thuốc từ kho dược <span style={{ color: '#dc2626' }}>*</span>
+                            </label>
+                            <select
+                              value={itemAddForm.medicineId}
+                              onChange={e => {
+                                const id = Number(e.target.value)
+                                setItemAddForm(prev => ({ ...prev, medicineId: id }))
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '13px',
+                                background: '#ffffff'
+                              }}
+                            >
+                              {availableMedicines.map(m => (
+                                <option key={m.id} value={m.id}>
+                                  {m.brandName} - Hoạt chất: {m.activeIngredient} (Tồn: {m.totalAvailableQuantity || 0} {m.unit}) - {(m.sellingPrice || 0).toLocaleString()} đ
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                              Số lượng tổng <span style={{ color: '#dc2626' }}>*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={itemAddForm.quantityPrescribed}
+                              onChange={e => setItemAddForm(prev => ({ ...prev, quantityPrescribed: Number(e.target.value) }))}
+                              style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '13px'
+                              }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                              Số ngày dùng thuốc
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={itemAddForm.durationDays}
+                              onChange={e => setItemAddForm(prev => ({ ...prev, durationDays: Number(e.target.value) }))}
+                              style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '13px'
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* PHÂN LIỀU DÙNG THEO CÁC BUỔI */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
+                              Sáng
+                            </label>
+                            <input
+                              type="text"
+                              value={itemAddForm.morningDose}
+                              onChange={e => setItemAddForm(prev => ({ ...prev, morningDose: e.target.value }))}
+                              placeholder="1"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
+                              Trưa
+                            </label>
+                            <input
+                              type="text"
+                              value={itemAddForm.noonDose}
+                              onChange={e => setItemAddForm(prev => ({ ...prev, noonDose: e.target.value }))}
+                              placeholder="0"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
+                              Chiều
+                            </label>
+                            <input
+                              type="text"
+                              value={itemAddForm.afternoonDose}
+                              onChange={e => setItemAddForm(prev => ({ ...prev, afternoonDose: e.target.value }))}
+                              placeholder="1"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
+                              Tối
+                            </label>
+                            <input
+                              type="text"
+                              value={itemAddForm.nightDose}
+                              onChange={e => setItemAddForm(prev => ({ ...prev, nightDose: e.target.value }))}
+                              placeholder="0"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12.5px' }}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, minWidth: '280px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                              Hướng dẫn uống / Cách dùng
+                            </label>
+                            <input
+                              type="text"
+                              value={itemAddForm.usageInstructions}
+                              onChange={e => setItemAddForm(prev => ({ ...prev, usageInstructions: e.target.value }))}
+                              placeholder="Ví dụ: Uống sau khi ăn no 30 phút, uống với nhiều nước..."
+                              style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleAddMedicineItem}
+                            style={{
+                              background: 'var(--primary)',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '9px 20px',
+                              borderRadius: '8px',
+                              fontSize: '13px',
+                              fontWeight: 750,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            + Thêm vào đơn thuốc
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* BẢNG CHI TIẾT CÁC THUỐC ĐANG KÊ */}
+                      <div>
+                        <h4 style={{ margin: '0 0 10px', fontSize: '14.5px', fontWeight: 800, color: '#0f172a' }}>
+                          Danh sách thuốc trong đơn ({prescriptionItems.length})
+                        </h4>
+
+                        {prescriptionItems.length === 0 ? (
+                          <div
+                            style={{
+                              padding: '28px',
+                              textAlign: 'center',
+                              fontSize: '13px',
+                              color: '#64748b',
+                              background: '#ffffff',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '12px'
+                            }}
+                          >
+                            Chưa có thuốc nào trong đơn thuốc hiện tại. Vui lòng chọn thuốc ở biểu mẫu bên trên để thêm vào.
+                          </div>
+                        ) : (
+                          <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', background: '#ffffff' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                              <thead>
+                                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#475569' }}>
+                                  <th style={{ padding: '10px 12px', width: '36px' }}>STT</th>
+                                  <th style={{ padding: '10px 12px' }}>Tên thuốc / Hoạt chất</th>
+                                  <th style={{ padding: '10px 12px', width: '80px', textAlign: 'center' }}>Số lượng</th>
+                                  <th style={{ padding: '10px 12px', width: '70px' }}>Đơn vị</th>
+                                  <th style={{ padding: '10px 12px' }}>Cách dùng & Liều lượng</th>
+                                  <th style={{ padding: '10px 12px', width: '100px', textAlign: 'right' }}>Đơn giá</th>
+                                  <th style={{ padding: '10px 12px', width: '110px', textAlign: 'right' }}>Thành tiền</th>
+                                  <th style={{ padding: '10px 12px', width: '60px', textAlign: 'center' }}>Xóa</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {prescriptionItems.map((item, idx) => (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                    <td style={{ padding: '10px 12px', color: '#64748b', fontWeight: 600 }}>{idx + 1}</td>
+                                    <td style={{ padding: '10px 12px' }}>
+                                      <strong style={{ color: '#0f172a' }}>{item.medicineName}</strong>
+                                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>Hoạt chất: {item.activeIngredient}</div>
+                                    </td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 800 }}>
+                                      {item.quantityPrescribed}
+                                    </td>
+                                    <td style={{ padding: '10px 12px', color: '#475569' }}>{item.unit}</td>
+                                    <td style={{ padding: '10px 12px', color: '#334155' }}>
+                                      <div>{item.usageInstructions}</div>
+                                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>Dùng trong {item.durationDays} ngày</div>
+                                    </td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right', color: '#475569' }}>
+                                      {item.unitPrice.toLocaleString()} đ
+                                    </td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 750, color: '#059669' }}>
+                                      {(item.unitPrice * item.quantityPrescribed).toLocaleString()} đ
+                                    </td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemovePrescriptionItem(idx)}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          color: '#dc2626',
+                                          fontWeight: 700,
+                                          cursor: 'pointer'
+                                        }}
+                                      >
+                                        Xóa
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr style={{ background: '#f8fafc', fontWeight: 800, color: '#0f172a' }}>
+                                  <td colSpan={6} style={{ padding: '12px', textAlign: 'right' }}>
+                                    Tổng tiền đơn thuốc dự kiến:
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'right', color: '#059669', fontSize: '15px' }}>
+                                    {prescriptionItems.reduce((acc, i) => acc + i.unitPrice * i.quantityPrescribed, 0).toLocaleString()} đ
+                                  </td>
+                                  <td />
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* LỜI DẶN DÒ ĐƠN THUỐC VÀ THAO TÁC LƯU */}
+                      <div
+                        style={{
+                          background: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '12px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px'
+                        }}
+                      >
+                        <div>
+                          <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                            Lời dặn bác sĩ trên đơn thuốc
+                          </label>
+                          <input
+                            type="text"
+                            value={prescriptionNotes}
+                            onChange={e => setPrescriptionNotes(e.target.value)}
+                            placeholder="Ví dụ: Tái khám khi hết thuốc hoặc nếu xuất hiện triệu chứng bất thường, uống nhiều nước..."
+                            style={{
+                              width: '100%',
+                              padding: '9px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid #cbd5e1',
+                              fontSize: '13px'
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                          <button
+                            type="button"
+                            onClick={handleSavePrescription}
+                            disabled={savingPrescription || prescriptionItems.length === 0}
+                            style={{
+                              background: '#10b981',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '10px 24px',
+                              borderRadius: '8px',
+                              fontSize: '13.5px',
+                              fontWeight: 800,
+                              cursor: prescriptionItems.length === 0 ? 'not-allowed' : 'pointer',
+                              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)'
+                            }}
+                          >
+                            {savingPrescription ? 'Đang lưu đơn...' : 'Lưu và chuyển nhà thuốc'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* DANH SÁCH CÁC ĐƠN THUỐC ĐÃ LẬP CỦA BỆNH NHÂN NÀY */}
+                      <div>
+                        <h4 style={{ margin: '0 0 10px', fontSize: '14.5px', fontWeight: 800, color: '#0f172a' }}>
+                          Lịch sử các đơn thuốc đã lập của bệnh nhân ({patientPrescriptions.length})
+                        </h4>
+
+                        {patientPrescriptions.length === 0 ? (
+                          <div style={{ padding: '20px', textAlign: 'center', fontSize: '12.5px', color: '#94a3b8', background: '#f8fafc', borderRadius: '10px' }}>
+                            Bệnh nhân chưa có đơn thuốc nào trước đây
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {patientPrescriptions.map(p => (
+                              <div
+                                key={p.id}
+                                style={{
+                                  background: '#ffffff',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '10px',
+                                  padding: '14px 18px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  flexWrap: 'wrap',
+                                  gap: '12px'
+                                }}
+                              >
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <strong style={{ fontSize: '14px', color: '#0f172a' }}>{p.prescriptionCode}</strong>
+                                    <span
+                                      style={{
+                                        background: p.status === 'PENDING_PAYMENT' ? '#fef3c7' : p.status === 'DISPENSED' ? '#dcfce7' : '#fee2e2',
+                                        color: p.status === 'PENDING_PAYMENT' ? '#b45309' : p.status === 'DISPENSED' ? '#15803d' : '#b91c1c',
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        fontSize: '11px',
+                                        fontWeight: 700
+                                      }}
+                                    >
+                                      {p.status}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>
+                                    Ngày kê: {p.createdAt} &bull; BS: {p.doctorName} &bull; Chẩn đoán: {p.diagnosis}
+                                  </div>
+                                  <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '2px' }}>
+                                    Gồm <strong>{p.items?.length || 0} loại thuốc</strong> &bull; Tổng tiền:{' '}
+                                    <strong style={{ color: '#059669' }}>{(p.totalAmount || 0).toLocaleString()} đ</strong>
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenPrescriptionPrintModal(p.id)}
+                                    style={{
+                                      background: '#f1f5f9',
+                                      border: '1px solid #cbd5e1',
+                                      padding: '6px 14px',
+                                      borderRadius: '6px',
+                                      fontSize: '12px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    In đơn thuốc A4
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* TAB 4: LỜI DẶN DÒ & HẸN TÁI KHÁM */}
                   {activeTab === 'followup' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -3271,6 +4053,362 @@ export const MedicalExaminationPage: React.FC<MedicalExaminationPageProps> = ({ 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL CẢNH BÁO DỊ ỨNG THUỐC (UC-DT02) */}
+      {/* ========================================================================= */}
+      {allergyModalOpen && allergyAlert && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '580px',
+              width: '100%',
+              padding: '28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
+              borderTop: '6px solid #dc2626'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <span
+                style={{
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontWeight: 900,
+                  fontSize: '20px'
+                }}
+              >
+                !
+              </span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#991b1b' }}>
+                  CẢNH BÁO DỊ ỨNG THUỐC ĐIỆN TỬ
+                </h3>
+                <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#64748b' }}>
+                  Hệ thống kiểm tra tự động phát hiện nguy cơ phản vệ / quá mẫn
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '1px solid #fca5a5',
+                borderRadius: '10px',
+                padding: '14px 16px',
+                fontSize: '13px',
+                color: '#7f1d1d',
+                marginBottom: '16px',
+                lineHeight: 1.5
+              }}
+            >
+              <div style={{ fontWeight: 750, marginBottom: '4px' }}>Nội dung cảnh báo:</div>
+              <div>{allergyAlert.warningMessage || allergyAlert.warnings?.map(w => w.message).join('; ')}</div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                Danh sách thuốc bị phát hiện xung đột ({allergyAlert.warnings?.length || 0}):
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {(allergyAlert.warnings || []).map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      fontSize: '12.5px'
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, color: '#0f172a' }}>{item.brandName}</div>
+                    <div style={{ color: '#475569', marginTop: '2px' }}>
+                      Hoạt chất: <strong>{item.activeIngredient}</strong> &bull; Trùng từ khóa:{' '}
+                      <strong style={{ color: '#dc2626' }}>{item.matchedAllergyKeyword}</strong>
+                    </div>
+                    {item.message && (
+                      <div style={{ fontSize: '11.5px', color: '#b91c1c', marginTop: '2px' }}>
+                        {item.message}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                Xác nhận lý do lâm sàng (Bắt buộc nếu bác sĩ vẫn quyết định kê thuốc):
+              </label>
+              <textarea
+                rows={3}
+                value={overrideAllergyReason}
+                onChange={e => setOverrideAllergyReason(e.target.value)}
+                placeholder="Ví dụ: Đã test lẩy da âm tính / Bệnh nhân chỉ dị ứng nhẹ với liều cao / Lợi ích điều trị vượt trội nguy cơ và có sẵn thuốc cấp cứu phản vệ..."
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
+              <button
+                type="button"
+                onClick={() => setAllergyModalOpen(false)}
+                style={{
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Đóng cảnh báo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!overrideAllergyReason.trim()) {
+                    showAlert('Vui lòng nhập lý do lâm sàng trước khi chấp thuận kê đơn!', 'error')
+                    return
+                  }
+                  setAllergyModalOpen(false)
+                  showAlert('Đã ghi nhận lý do lâm sàng của bác sĩ cho đơn thuốc có cảnh báo dị ứng', 'info')
+                }}
+                style={{
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '9px 20px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                Xác nhận tiếp tục kê đơn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL IN ĐƠN THUỐC CHUẨN A4 BỘ Y TẾ / CAREPLUS (UC-DT03) */}
+      {/* ========================================================================= */}
+      {prescriptionPrintModalOpen && prescriptionPrintData && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '850px',
+              width: '100%',
+              maxHeight: '94vh',
+              overflowY: 'auto',
+              padding: '36px 40px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              color: '#0f172a'
+            }}
+          >
+            {/* NÚT THAO TÁC IN & ĐÓNG */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
+                Mẫu đơn thuốc điện tử chuẩn Bộ Y tế - CarePlus Clinic
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    background: 'var(--primary)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '6px 16px',
+                    borderRadius: '6px',
+                    fontSize: '12.5px',
+                    fontWeight: 750,
+                    cursor: 'pointer'
+                  }}
+                >
+                  In đơn thuốc
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrescriptionPrintModalOpen(false)}
+                  style={{
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+
+            {/* HEADER PHÒNG KHÁM */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: '16px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--primary-dark)' }}>
+                  PHÒNG KHÁM ĐA KHOA CAREPLUS CLINIC
+                </h2>
+                <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>
+                  Địa chỉ: Tầng 2, Tòa nhà Crescent Plaza, 105 Tôn Dật Tiên, Quận 7, TP. Hồ Chí Minh
+                </div>
+                <div style={{ fontSize: '12px', color: '#475569' }}>
+                  Hotline: 1800 6116 &bull; Website: www.careplusvn.com
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                  Mã đơn: {prescriptionPrintData.prescriptionCode}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  Ngày: {prescriptionPrintData.createdAt}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  Mã hồ sơ: {prescriptionPrintData.recordCode || '-'}
+                </div>
+              </div>
+            </div>
+
+            {/* TIÊU ĐỀ */}
+            <div style={{ textAlign: 'center', margin: '20px 0 16px' }}>
+              <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, letterSpacing: '1px' }}>
+                ĐƠN THUỐC
+              </h1>
+            </div>
+
+            {/* THÔNG TIN BỆNH NHÂN */}
+            <div style={{ background: '#f8fafc', padding: '14px 18px', borderRadius: '10px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div>Họ và tên: <strong style={{ fontSize: '14px' }}>{prescriptionPrintData.patientName}</strong></div>
+                <div>Giới tính: <strong>{prescriptionPrintData.gender === 'FEMALE' ? 'Nữ' : 'Nam'}</strong></div>
+                <div>Ngày sinh: <strong>{prescriptionPrintData.dateOfBirth || '-'}</strong></div>
+                <div>Tuổi: <strong>{prescriptionPrintData.age || '-'}</strong></div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div>Mã y tế: <strong>{prescriptionPrintData.patientCode}</strong></div>
+                <div>Số điện thoại: <strong>{prescriptionPrintData.phone || '-'}</strong></div>
+                <div>BHYT: <strong>{prescriptionPrintData.healthInsuranceNumber || 'Không'}</strong></div>
+              </div>
+              <div>Địa chỉ: <strong>{prescriptionPrintData.address || 'TP. Hồ Chí Minh'}</strong></div>
+              <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '6px', marginTop: '2px' }}>
+                Chẩn đoán: <strong style={{ color: '#0f172a' }}>{prescriptionPrintData.diagnosis}</strong>{' '}
+                {prescriptionPrintData.icd10Code && <span style={{ color: '#64748b' }}>({prescriptionPrintData.icd10Code})</span>}
+              </div>
+            </div>
+
+            {/* BẢNG CHI TIẾT THUỐC */}
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 800 }}>
+                Chỉ định dùng thuốc:
+              </h4>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1.5px solid #0f172a', textAlign: 'left', color: '#0f172a' }}>
+                    <th style={{ padding: '8px 6px', width: '36px' }}>STT</th>
+                    <th style={{ padding: '8px 6px' }}>Tên thuốc, hàm lượng, nồng độ</th>
+                    <th style={{ padding: '8px 6px', width: '80px', textAlign: 'center' }}>Số lượng</th>
+                    <th style={{ padding: '8px 6px', width: '70px' }}>Đơn vị</th>
+                    <th style={{ padding: '8px 6px' }}>Hướng dẫn sử dụng & Liều lượng</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {prescriptionPrintData.items.map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 6px', fontWeight: 600 }}>{idx + 1}</td>
+                      <td style={{ padding: '10px 6px' }}>
+                        <strong style={{ fontSize: '13.5px' }}>{item.brandName || item.medicineCode}</strong>
+                        {item.activeIngredient && (
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>({item.activeIngredient})</div>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px 6px', textAlign: 'center', fontWeight: 750 }}>
+                        {item.quantity}
+                      </td>
+                      <td style={{ padding: '10px 6px' }}>{item.unit}</td>
+                      <td style={{ padding: '10px 6px', color: '#334155' }}>
+                        <div>{item.instructions}</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* DẶN DÒ BÁC SĨ */}
+            <div style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '24px' }}>
+              <div>Lời dặn bác sĩ: <strong>{prescriptionPrintData.doctorAdvice || 'Tái khám theo hẹn hoặc khi có dấu hiệu bất thường.'}</strong></div>
+              {prescriptionPrintData.followUpDate && (
+                <div>Ngày hẹn tái khám: <strong style={{ color: '#0369a1' }}>{prescriptionPrintData.followUpDate}</strong></div>
+              )}
+            </div>
+
+            {/* CHỮ KÝ */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', textAlign: 'center', marginTop: '30px', pageBreakInside: 'avoid' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700 }}>DƯỢC SĨ CẤP PHÁT</div>
+                <div style={{ fontSize: '11.5px', color: '#64748b', fontStyle: 'italic' }}>(Ký và ghi rõ họ tên)</div>
+                <div style={{ height: '70px' }} />
+                <div style={{ fontSize: '13.5px', fontWeight: 750 }}>{prescriptionPrintData.pharmacistName || 'DS. Phạm Thị Nga'}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                  Ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}
+                </div>
+                <div style={{ fontSize: '13px', fontWeight: 700, marginTop: '2px' }}>BÁC SĨ KÊ ĐƠN</div>
+                <div style={{ fontSize: '11.5px', color: '#64748b', fontStyle: 'italic' }}>(Ký và ghi rõ họ tên)</div>
+                <div style={{ height: '54px' }} />
+                <div style={{ fontSize: '13.5px', fontWeight: 750 }}>{prescriptionPrintData.doctorName}</div>
+              </div>
+            </div>
           </div>
         </div>
       )}

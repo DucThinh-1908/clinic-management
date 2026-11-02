@@ -45,7 +45,21 @@ export const Navbar: React.FC<NavbarProps> = ({
       currentUser.roles.some((r) => r.toLowerCase() === 'doctor')
   )
 
-  const brandDestination = isStaff ? (isDoctor ? '/kham-benh' : canManage ? '/admin/tai-khoan' : '/quan-ly-benh-nhan') : '/'
+  const isPharmacist = Boolean(
+    currentUser &&
+      (currentUser.username?.includes('pharm') ||
+        currentUser.roles?.some((r) => r.toLowerCase() === 'pharmacist'))
+  )
+
+  const brandDestination = isStaff
+    ? isDoctor
+      ? '/kham-benh'
+      : isPharmacist
+      ? '/kho-thuoc'
+      : canManage
+      ? '/admin/tai-khoan'
+      : '/quan-ly-benh-nhan'
+    : '/'
 
   const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
     color: isActive ? 'var(--primary)' : 'var(--ink)',
@@ -127,6 +141,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 })}
               >
                 Khám bệnh lâm sàng
+              </NavLink>
+              <NavLink
+                to="/kho-thuoc"
+                style={({ isActive }) => ({
+                  color: isActive ? '#065f46' : '#047857',
+                  fontWeight: 700,
+                  background: isActive ? '#a7f3d0' : '#dcfce7',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid #6ee7b7',
+                  transition: 'all 0.2s',
+                })}
+              >
+                Nhà thuốc & Kho dược
               </NavLink>
               <NavLink
                 to="/tiep-don-xep-hang"
@@ -372,6 +400,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                         Tiếp đón & Hàng chờ
                       </Link>
                       <Link
+                        to="/kho-thuoc"
+                        onClick={() => setUserDropdownOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '10px 16px',
+                          fontSize: '13.5px',
+                          color: '#047857',
+                        }}
+                      >
+                        Nhà thuốc & Cấp phát thuốc
+                      </Link>
+                      <Link
                         to="/lich-hen"
                         onClick={() => setUserDropdownOpen(false)}
                         style={{
@@ -552,6 +592,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <>
               <Link to="/kham-benh" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#059669' }}>
                 Khám bệnh lâm sàng
+              </Link>
+              <Link to="/kho-thuoc" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#047857' }}>
+                Nhà thuốc & Kho dược
               </Link>
               <Link to="/tiep-don-xep-hang" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650, color: '#0369a1' }}>
                 Tiếp đón & Hàng chờ

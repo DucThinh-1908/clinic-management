@@ -60,6 +60,12 @@ class ClinicManagementApplicationTests {
 	@Autowired
 	private MedicalExaminationService medicalExaminationService;
 
+	@Autowired
+	private com.clinic.clinic_management.service.PharmacyService pharmacyService;
+
+	@Autowired
+	private com.clinic.clinic_management.repository.PatientRepository patientRepository;
+
 	@Test
 	@Order(1)
 	void contextLoads() {
@@ -560,7 +566,7 @@ class ClinicManagementApplicationTests {
 
 		// Create clinic room in this department
 		com.clinic.clinic_management.dto.StaffSchedulingDtos.ClinicRoomRequest roomReq = new com.clinic.clinic_management.dto.StaffSchedulingDtos.ClinicRoomRequest();
-		String roomNum = "P3" + (int)(Math.random() * 90 + 10);
+		String roomNum = "P" + (int)(Math.random() * 90000 + 10000);
 		roomReq.departmentId = dept.id;
 		roomReq.roomNumber = roomNum;
 		roomReq.name = "Phong Kham Mat Chuyen Khoa";
@@ -1292,6 +1298,249 @@ class ClinicManagementApplicationTests {
 		assertNotNull(printDto.getIcd10Code());
 		assertNotNull(printDto.getClinicName());
 		assertNotNull(printDto.getClinicAddress());
+	}
+
+	// =========================================================================
+	// PHÂN HỆ 3.8: KÊ ĐƠN VÀ KHO THUỐC (10 USE CASES)
+	// =========================================================================
+
+	// UC-DT01: Kê đơn thuốc (Bác sĩ)
+	@Test
+	@Order(47)
+	void testUcDt01CreatePrescription() {
+		com.clinic.clinic_management.dto.PharmacyDtos.CreatePrescriptionRequest req =
+				new com.clinic.clinic_management.dto.PharmacyDtos.CreatePrescriptionRequest();
+		req.setMedicalRecordId(1L);
+		req.setDoctorId(2L);
+		req.setPatientId(1L);
+		req.setDiagnosis("Đau đầu do căng thẳng (G44.2)");
+		req.setUsageNote("Uống thuốc đúng giờ sau ăn no");
+
+		com.clinic.clinic_management.dto.PharmacyDtos.PrescriptionItemRequest item1 =
+				new com.clinic.clinic_management.dto.PharmacyDtos.PrescriptionItemRequest();
+		item1.setMedicineId(1L); // Panadol Extra
+		item1.setQuantity(10);
+		item1.setMorningDose("1");
+		item1.setNightDose("1");
+		item1.setInstructions("Uống sau ăn");
+
+		com.clinic.clinic_management.dto.PharmacyDtos.PrescriptionItemRequest item2 =
+				new com.clinic.clinic_management.dto.PharmacyDtos.PrescriptionItemRequest();
+		item2.setMedicineId(4L); // Nexium 40mg
+		item2.setQuantity(5);
+		item2.setMorningDose("1");
+		item2.setInstructions("Uống trước ăn sáng 30 phút");
+
+		req.setItems(java.util.List.of(item1, item2));
+
+		var resp = pharmacyService.createPrescription(req);
+		assertNotNull(resp);
+		assertNotNull(resp.getId());
+		assertTrue(resp.getPrescriptionCode().startsWith("DT"));
+		assertEquals(2, resp.getItems().size());
+		assertEquals("PENDING_PAYMENT", resp.getStatus());
+		assertTrue(resp.getTotalAmount().compareTo(java.math.BigDecimal.ZERO) > 0);
+	}
+
+	// UC-DT02: Cảnh báo dị ứng khi kê đơn (Hệ thống)
+	@Test
+	@Order(48)
+	void testUcDt02CheckAllergies() {
+		// Tạo bệnh nhân có tiền sử dị ứng Penicillin và Paracetamol
+		com.clinic.clinic_management.entity.Patient allergicPatient = new com.clinic.clinic_management.entity.Patient();
+		allergicPatient.setPatientCode("BN_ALLERGY_" + System.currentTimeMillis());
+		allergicPatient.setFullName("Trần Văn Dị Ứng");
+		allergicPatient.setGender("MALE");
+		allergicPatient.setDateOfBirth(java.time.LocalDate.of(1995, 5, 20));
+		allergicPatient.setPhone("098" + (int)(Math.random() * 9000000 + 1000000));
+		allergicPatient.setDrugAllergies("Dị ứng Penicillin, mẩn ngứa khi dùng Paracetamol");
+		allergicPatient = patientRepository.save(allergicPatient);
+
+		com.clinic.clinic_management.dto.PharmacyDtos.AllergyCheckRequest req =
+				new com.clinic.clinic_management.dto.PharmacyDtos.AllergyCheckRequest();
+		req.setPatientId(allergicPatient.getId());
+		req.setMedicineIds(java.util.List.of(1L, 2L)); // 1L: Panadol (Paracetamol), 2L: Augmentin (Amoxicillin/Penicillin)
+
+		var alertResp = pharmacyService.checkAllergies(req);
+		assertNotNull(alertResp);
+		assertTrue(alertResp.isHasRisk(), "Hệ thống phải phát hiện nguy cơ dị ứng nghiêm trọng");
+		assertFalse(alertResp.getWarnings().isEmpty());
+		assertEquals("HIGH", alertResp.getWarnings().get(0).getSeverity());
+		assertTrue(alertResp.getWarnings().get(0).getMessage().contains("nguy cơ dị ứng"));
+	}
+
+	// UC-DT03: In đơn thuốc (Bác sĩ, Dược sĩ)
+	@Test
+	@Order(49)
+	void testUcDt03PrintPrescription() {
+		// Sử dụng đơn thuốc mẫu ID 1 trong seed data
+		var printData = pharmacyService.getPrescriptionPrintData(1L);
+		assertNotNull(printData);
+		assertEquals(1L, printData.getPrescriptionId());
+		assertNotNull(printData.getPrescriptionCode());
+		assertNotNull(printData.getPatientName());
+		assertNotNull(printData.getDoctorName());
+		assertNotNull(printData.getDiagnosis());
+		assertNotNull(printData.getClinicName());
+		assertNotNull(printData.getClinicAddress());
+		assertFalse(printData.getItems().isEmpty());
+	}
+
+	// UC-DT04: Cấp phát thuốc theo đơn (Dược sĩ)
+	@Test
+	@Order(50)
+	void testUcDt04DispensePrescription() {
+		// Tạo đơn thuốc mới để cấp phát
+		com.clinic.clinic_management.dto.PharmacyDtos.CreatePrescriptionRequest req =
+				new com.clinic.clinic_management.dto.PharmacyDtos.CreatePrescriptionRequest();
+		req.setMedicalRecordId(1L);
+		req.setPatientId(1L);
+		req.setDoctorId(2L);
+		req.setDiagnosis("Tăng huyết áp vô căn (I10)");
+
+		com.clinic.clinic_management.dto.PharmacyDtos.PrescriptionItemRequest item =
+				new com.clinic.clinic_management.dto.PharmacyDtos.PrescriptionItemRequest();
+		item.setMedicineId(3L); // Amlor 5mg
+		item.setQuantity(2);
+		item.setMorningDose("1");
+		req.setItems(java.util.List.of(item));
+
+		var pres = pharmacyService.createPrescription(req);
+
+		// Dược sĩ cấp phát thuốc
+		com.clinic.clinic_management.dto.PharmacyDtos.DispensePrescriptionRequest dispReq =
+				new com.clinic.clinic_management.dto.PharmacyDtos.DispensePrescriptionRequest();
+		dispReq.setPrescriptionId(pres.getId());
+		dispReq.setPharmacistId(6L); // DS001 Phạm Thị Nga
+		dispReq.setNote("Đã dặn dò bệnh nhân uống vào mỗi buổi sáng");
+
+		var dispResp = pharmacyService.dispensePrescription(dispReq);
+		assertNotNull(dispResp);
+		assertNotNull(dispResp.getId());
+		assertTrue(dispResp.getDispensationCode().startsWith("CP"));
+		assertEquals(pres.getId(), dispResp.getPrescriptionId());
+
+		// Đơn thuốc chuyển sang DISPENSED
+		var updatedPres = pharmacyService.getPrescriptionById(pres.getId());
+		assertEquals("DISPENSED", updatedPres.getStatus());
+	}
+
+	// UC-DT05: Quản lý danh mục thuốc (Dược sĩ)
+	@Test
+	@Order(51)
+	void testUcDt05ManageMedicinesAndCategories() {
+		// Thêm mới thuốc
+		com.clinic.clinic_management.dto.PharmacyDtos.SaveMedicineRequest medReq =
+				new com.clinic.clinic_management.dto.PharmacyDtos.SaveMedicineRequest();
+		medReq.setCategoryId(1L);
+		medReq.setCode("MED_TEST_" + System.currentTimeMillis() % 10000);
+		medReq.setBrandName("Efferalgan 500mg");
+		medReq.setActiveIngredient("Paracetamol 500mg");
+		medReq.setDosageForm("Viên sủi");
+		medReq.setUnit("Viên");
+		medReq.setSellingPrice(new java.math.BigDecimal("3500.00"));
+		medReq.setUsageInstructions("Hòa tan 1 viên vào 200ml nước đun sôi để nguội");
+
+		var savedMed = pharmacyService.saveMedicine(medReq);
+		assertNotNull(savedMed);
+		assertNotNull(savedMed.getId());
+		assertEquals("Efferalgan 500mg", savedMed.getBrandName());
+
+		// Tra cứu theo từ khóa
+		var searchResult = pharmacyService.getAllMedicines("Efferalgan", null);
+		assertFalse(searchResult.isEmpty());
+	}
+
+	// UC-DT06: Nhập kho thuốc (Dược sĩ)
+	@Test
+	@Order(52)
+	void testUcDt06ImportStock() {
+		com.clinic.clinic_management.dto.PharmacyDtos.ImportStockRequest req =
+				new com.clinic.clinic_management.dto.PharmacyDtos.ImportStockRequest();
+		req.setMedicineId(1L); // Panadol Extra
+		req.setSupplierId(1L); // DHG Pharma
+		req.setBatchNumber("BATCH_TEST_" + (int)(Math.random() * 9000 + 1000));
+		req.setManufactureDate(java.time.LocalDate.now().minusMonths(2));
+		req.setExpiryDate(java.time.LocalDate.now().plusYears(2));
+		req.setImportPrice(new java.math.BigDecimal("2000.00"));
+		req.setQuantityImported(300);
+		req.setPharmacistId(6L);
+		req.setNote("Nhập bổ sung kho chính quý 4");
+
+		var batchDto = pharmacyService.importStock(req);
+		assertNotNull(batchDto);
+		assertNotNull(batchDto.getId());
+		assertEquals(300, batchDto.getQuantityImported());
+		assertEquals(300, batchDto.getQuantityAvailable());
+		assertFalse(batchDto.isExpired());
+	}
+
+	// UC-DT07: Kiểm kê tồn kho thuốc (Dược sĩ)
+	@Test
+	@Order(53)
+	void testUcDt07StockAudit() {
+		// Lấy danh sách lô thuốc của Panadol Extra (ID 1)
+		var batches = pharmacyService.getAllBatches(1L);
+		assertFalse(batches.isEmpty());
+		var targetBatch = batches.get(0);
+
+		int newCount = targetBatch.getQuantityAvailable() + 10;
+		com.clinic.clinic_management.dto.PharmacyDtos.StockAuditRequest auditReq =
+				new com.clinic.clinic_management.dto.PharmacyDtos.StockAuditRequest();
+		auditReq.setBatchId(targetBatch.getId());
+		auditReq.setPharmacistId(6L);
+		auditReq.setActualQuantity(newCount);
+		auditReq.setReason("Kiểm đếm định kỳ cuối tuần, phát hiện dư 10 viên");
+
+		var audited = pharmacyService.auditStock(auditReq);
+		assertNotNull(audited);
+		assertEquals(newCount, audited.getQuantityAvailable());
+	}
+
+	// UC-DT08: Cảnh báo thuốc sắp hết / sắp hết hạn (Hệ thống, Dược sĩ)
+	@Test
+	@Order(54)
+	void testUcDt08StockAlerts() {
+		// Lấy cảnh báo với ngưỡng tồn thấp 100 và ngưỡng hết hạn 180 ngày
+		var alerts = pharmacyService.getStockAlerts(100, 180);
+		assertNotNull(alerts);
+		assertTrue(alerts.getLowStockCount() >= 0);
+		assertTrue(alerts.getNearExpiryCount() >= 0);
+		assertNotNull(alerts.getAlerts());
+	}
+
+	// UC-DT09: Quản lý nhà cung cấp (Dược sĩ)
+	@Test
+	@Order(55)
+	void testUcDt09ManageSuppliers() {
+		com.clinic.clinic_management.dto.PharmacyDtos.SaveSupplierRequest req =
+				new com.clinic.clinic_management.dto.PharmacyDtos.SaveSupplierRequest();
+		req.setName("Công ty TNHH Dược phẩm Sanofi-Aventis Việt Nam");
+		req.setTaxCode("0302821234");
+		req.setPhone("02838298526");
+		req.setEmail("contact@sanofi.com.vn");
+		req.setAddress("Khu Công Nghệ Cao, TP. Thủ Đức, TP. Hồ Chí Minh");
+
+		var saved = pharmacyService.saveSupplier(req);
+		assertNotNull(saved);
+		assertNotNull(saved.getId());
+		assertEquals("Công ty TNHH Dược phẩm Sanofi-Aventis Việt Nam", saved.getName());
+
+		var list = pharmacyService.getAllSuppliers();
+		assertFalse(list.isEmpty());
+	}
+
+	// UC-DT10: Xem lịch sử nhập - xuất thuốc (Dược sĩ, Quản lý)
+	@Test
+	@Order(56)
+	void testUcDt10StockTransactions() {
+		var txList = pharmacyService.getStockTransactions(null, null, null);
+		assertNotNull(txList);
+		assertFalse(txList.isEmpty(), "Kho thuốc phải có nhật ký giao dịch xuất/nhập kho");
+		var firstTx = txList.get(0);
+		assertNotNull(firstTx.getTransactionType());
+		assertNotNull(firstTx.getQuantity());
+		assertNotNull(firstTx.getTransactionDate());
 	}
 }
 

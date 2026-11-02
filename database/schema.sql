@@ -190,6 +190,46 @@ CREATE TABLE staff_schedules (
     CONSTRAINT fk_sched_room FOREIGN KEY (room_id) REFERENCES clinic_rooms(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+-- Bảng yêu cầu nghỉ phép và đổi ca (Bác sĩ / Nhân viên đăng ký - Quản lý duyệt)
+CREATE TABLE leave_swap_requests (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    staff_id BIGINT NOT NULL,
+    request_type ENUM('LEAVE', 'SWAP') NOT NULL COMMENT 'LEAVE: Xin nghỉ phép, SWAP: Đổi ca trực',
+    schedule_id BIGINT NULL COMMENT 'Lịch làm việc cần nghỉ/đổi',
+    leave_date DATE NULL COMMENT 'Ngày xin nghỉ nếu là LEAVE',
+    target_staff_id BIGINT NULL COMMENT 'Đồng nghiệp đổi ca cùng nếu là SWAP',
+    target_date DATE NULL COMMENT 'Ngày muốn đổi sang',
+    target_shift_id BIGINT NULL COMMENT 'Ca muốn đổi sang',
+    reason TEXT NOT NULL COMMENT 'Lý do xin nghỉ / đổi ca',
+    status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+    reviewer_id BIGINT NULL COMMENT 'Quản lý phê duyệt',
+    review_note VARCHAR(255) NULL,
+    reviewed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_lsr_staff FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
+    CONSTRAINT fk_lsr_schedule FOREIGN KEY (schedule_id) REFERENCES staff_schedules(id) ON DELETE SET NULL,
+    CONSTRAINT fk_lsr_target_staff FOREIGN KEY (target_staff_id) REFERENCES staff(id) ON DELETE SET NULL,
+    CONSTRAINT fk_lsr_target_shift FOREIGN KEY (target_shift_id) REFERENCES work_shifts(id) ON DELETE SET NULL,
+    CONSTRAINT fk_lsr_reviewer FOREIGN KEY (reviewer_id) REFERENCES staff(id) ON DELETE SET NULL
+) ENGINE=InnoDB COMMENT='Bảng yêu cầu xin nghỉ phép hoặc đổi ca trực của nhân viên y tế';
+
+-- Bảng chấm công điểm danh vào ca và ra ca (Nhân viên thực hiện)
+CREATE TABLE attendances (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    staff_id BIGINT NOT NULL,
+    schedule_id BIGINT NULL,
+    attendance_date DATE NOT NULL,
+    check_in_time TIMESTAMP NULL,
+    check_out_time TIMESTAMP NULL,
+    status ENUM('ON_TIME', 'LATE', 'EARLY_LEAVE', 'LATE_AND_EARLY_LEAVE', 'ABSENT') DEFAULT 'ON_TIME',
+    notes VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_staff_date (staff_id, attendance_date),
+    CONSTRAINT fk_att_staff FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE,
+    CONSTRAINT fk_att_schedule FOREIGN KEY (schedule_id) REFERENCES staff_schedules(id) ON DELETE SET NULL
+) ENGINE=InnoDB COMMENT='Bảng ghi nhận chấm công điểm danh ca trực';
+
 -- -----------------------------------------------------------------------------
 -- PHẦN 3: BỆNH NHÂN, LỊCH HẸN & TIẾP ĐÓN (PATIENT & RECEPTIONIST)
 -- -----------------------------------------------------------------------------

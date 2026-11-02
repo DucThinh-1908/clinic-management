@@ -139,3 +139,124 @@ export interface MedicalRecordSummary {
   status: string
   createdAt: string
 }
+
+export interface StaffItem {
+  id: number
+  userId: number
+  username?: string
+  email?: string
+  phone?: string
+  roleCode?: string
+  roleName?: string
+  staffCode: string
+  fullName: string
+  gender: string
+  dateOfBirth?: string
+  idCardNumber?: string
+  address?: string
+  qualification?: string
+  hireDate?: string
+  status: string
+  departmentId?: number
+  departmentName?: string
+  licenseNumber?: string
+  specialty?: string
+  consultationFee?: number
+  biography?: string
+  yearsOfExperience?: number
+  createdAt?: string
+}
+
+export interface DepartmentItem {
+  id: number
+  code: string
+  name: string
+  description?: string
+  location?: string
+  isActive: boolean
+  roomCount: number
+  staffCount: number
+  createdAt?: string
+}
+
+export interface ClinicRoomItem {
+  id: number
+  departmentId: number
+  departmentName?: string
+  roomNumber: string
+  name: string
+  roomType: string
+  isAvailable: boolean
+}
+
+export interface WorkShiftItem {
+  id: number
+  name: string
+  startTime: string
+  endTime: string
+}
+
+export interface ScheduleItem {
+  id: number
+  staffId: number
+  staffCode?: string
+  staffName?: string
+  staffRole?: string
+  qualification?: string
+  departmentId?: number
+  departmentName?: string
+  shiftId: number
+  shiftName?: string
+  shiftStartTime?: string
+  shiftEndTime?: string
+  roomId?: number
+  roomNumber?: string
+  roomName?: string
+  workDate: string
+  note?: string
+  status: string
+  createdAt?: string
+}
+
+export interface LeaveSwapItem {
+  id: number
+  staffId: number
+  staffName?: string
+  staffCode?: string
+  requestType: 'LEAVE' | 'SWAP'
+  scheduleId?: number
+  currentWorkDate?: string
+  currentShiftName?: string
+  currentRoomName?: string
+  leaveDate?: string
+  targetStaffId?: number
+  targetStaffName?: string
+  targetDate?: string
+  targetShiftId?: number
+  targetShiftName?: string
+  reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewerId?: number
+  reviewerName?: string
+  reviewNote?: string
+  reviewedAt?: string
+  createdAt?: string
+}
+
+export interface AttendanceItem {
+  id: number
+  staffId: number
+  staffCode?: string
+  staffName?: string
+  departmentName?: string
+  scheduleId?: number
+  shiftName?: string
+  expectedStartTime?: string
+  expectedEndTime?: string
+  attendanceDate: string
+  checkInTime?: string
+  checkOutTime?: string
+  status: string
+  notes?: string
+}
+

@@ -14,6 +14,7 @@ import { RegisterPage } from './pages/RegisterPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { AdminAccountPortal } from './pages/AdminAccountPortal'
 import { PatientManagementPage } from './pages/PatientManagementPage'
+import { StaffSchedulingPage } from './pages/StaffSchedulingPage'
 import type { AuthUser } from './types'
 import './App.css'
 
@@ -219,6 +220,13 @@ function App() {
             <Route path="/admin/tai-khoan" element={<AdminAccountPortal currentUser={currentUser} />} />
             <Route path="/admin/phan-quyen" element={<AdminAccountPortal currentUser={currentUser} />} />
             <Route path="/admin/nhat-ky-ho-so" element={<AdminAccountPortal currentUser={currentUser} />} />
+
+            {/* Quản lý nhân sự, chuyên khoa, lịch làm việc, đổi ca & chấm công (Module 3.3) */}
+            <Route path="/quan-ly-nhan-su" element={<StaffSchedulingPage currentUser={currentUser} />} />
+            <Route path="/quan-ly-chuyen-khoa" element={<StaffSchedulingPage currentUser={currentUser} />} />
+            <Route path="/lich-lam-viec" element={<StaffSchedulingPage currentUser={currentUser} />} />
+            <Route path="/dang-ky-ca" element={<StaffSchedulingPage currentUser={currentUser} />} />
+            <Route path="/cham-cong" element={<StaffSchedulingPage currentUser={currentUser} />} />
           </Routes>
         </main>
 

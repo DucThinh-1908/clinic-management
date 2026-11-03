@@ -84,8 +84,14 @@ public class MedicalExaminationController {
     }
 
     // =========================================================================
-    // UC-KB05: XEM KẾT QUẢ CẬN LÂM SÀNG (BÁC SĨ)
+    // UC-KB05: XEM KẾT QUẢ CẬN LÂM SÀNG (BÁC SĨ & KỸ THUẬT VIÊN)
     // =========================================================================
+    @GetMapping("/lab-orders")
+    public ResponseEntity<List<LabOrderSummaryDto>> getAllLabOrders() {
+        List<LabOrderSummaryDto> orders = medicalExaminationService.getAllLabOrders();
+        return ResponseEntity.ok(orders);
+    }
+
     @GetMapping("/lab-orders/record/{recordId}")
     public ResponseEntity<List<LabOrderSummaryDto>> getLabOrdersByRecord(@PathVariable Long recordId) {
         List<LabOrderSummaryDto> orders = medicalExaminationService.getLabOrdersByRecord(recordId);

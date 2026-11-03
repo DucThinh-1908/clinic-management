@@ -289,8 +289,23 @@ public class MedicalExaminationService {
     }
 
     // =========================================================================
-    // UC-KB05: XEM KẾT QUẢ CẬN LÂM SÀNG (BÁC SĨ)
+    // UC-KB05: XEM KẾT QUẢ CẬN LÂM SÀNG (BÁC SĨ & KỸ THUẬT VIÊN)
     // =========================================================================
+    @Transactional(readOnly = true)
+    public List<LabOrderSummaryDto> getAllLabOrders() {
+        List<LabOrder> orders = labOrderRepository.findAll();
+        orders.sort((a, b) -> {
+            if (b.getCreatedAt() == null || a.getCreatedAt() == null) return 0;
+            return b.getCreatedAt().compareTo(a.getCreatedAt());
+        });
+        return orders.stream()
+                .map(order -> {
+                    List<LabResult> results = labResultRepository.findByLabOrderId(order.getId());
+                    return mapToLabOrderSummary(order, results);
+                })
+                .collect(Collectors.toList());
+    }
+
     @Transactional(readOnly = true)
     public List<LabOrderSummaryDto> getLabOrdersByRecord(Long medicalRecordId) {
         List<LabOrder> orders = labOrderRepository.findByMedicalRecordId(medicalRecordId);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { NavLink, Link } from 'react-router-dom'
 import type { AuthUser } from '../types'
 
@@ -17,6 +17,26 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const [servicesMenuOpen, setServicesMenuOpen] = useState(false)
+
+  const servicesMenuRef = useRef<HTMLDivElement>(null)
+  const userDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (servicesMenuRef.current && !servicesMenuRef.current.contains(target)) {
+        setServicesMenuOpen(false)
+      }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
+        setUserDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const userRoles = (currentUser?.roles || []).map((r) => r.toLowerCase())
 
@@ -72,6 +92,146 @@ export const Navbar: React.FC<NavbarProps> = ({
       : '/quan-ly-benh-nhan'
     : '/'
 
+  // Lối tắt chính nhanh cho vai trò nhân sự
+  const primaryShortcut = isCashier
+    ? { to: '/thu-ngan', label: 'Thu viện phí' }
+    : isDoctor
+    ? { to: '/kham-benh', label: 'Khám bệnh lâm sàng' }
+    : isPharmacist
+    ? { to: '/kho-thuoc', label: 'Kho dược & Nhà thuốc' }
+    : isReceptionist
+    ? { to: '/tiep-don-xep-hang', label: 'Tiếp đón & Hàng chờ' }
+    : isNurse
+    ? { to: '/kham-benh', label: 'Bàn khám & Điều trị' }
+    : canManage
+    ? { to: '/admin/tai-khoan', label: 'Quản trị hệ thống' }
+    : null
+
+  // Danh mục đầy đủ các nghiệp vụ được phân quyền
+  interface BusinessItem {
+    to: string
+    title: string
+    desc: string
+    color: string
+    bg: string
+    border: string
+  }
+
+  const staffBusinessList: BusinessItem[] = [
+    canAccessExamination && {
+      to: '/kham-benh',
+      title: 'Khám bệnh lâm sàng',
+      desc: 'Khám bệnh, chỉ định xét nghiệm, chẩn đoán, kê đơn thuốc',
+      color: '#059669',
+      bg: '#ecfdf5',
+      border: '#a7f3d0',
+    },
+    canAccessReception && {
+      to: '/tiep-don-xep-hang',
+      title: 'Tiếp đón & Hàng chờ',
+      desc: 'Tiếp đón bệnh nhân, phân luồng xếp hàng, phát số thứ tự',
+      color: '#0284c7',
+      bg: '#f0f9ff',
+      border: '#bae6fd',
+    },
+    canAccessAppointments && {
+      to: '/lich-hen',
+      title: 'Đặt & Quản lý lịch hẹn',
+      desc: 'Tra cứu, đặt lịch khám và xác nhận lịch hẹn trực tuyến',
+      color: '#ea580c',
+      bg: '#fff7ed',
+      border: '#fed7aa',
+    },
+    canAccessPatients && {
+      to: '/quan-ly-benh-nhan',
+      title: 'Hồ sơ bệnh nhân',
+      desc: 'Tra cứu lịch sử khám, quản lý bệnh án điện tử',
+      color: 'var(--primary)',
+      bg: 'var(--soft)',
+      border: 'var(--primary-light)',
+    },
+    canAccessBilling && {
+      to: '/thu-ngan',
+      title: 'Thu viện phí & Hóa đơn',
+      desc: 'Thanh toán viện phí, tiền thuốc, xuất biên lai hóa đơn',
+      color: '#047857',
+      bg: '#dcfce7',
+      border: '#6ee7b7',
+    },
+    canAccessPharmacy && {
+      to: '/kho-thuoc',
+      title: 'Nhà thuốc & Kho dược',
+      desc: 'Xuất thuốc theo đơn bác sĩ, kiểm kê tồn kho thuốc',
+      color: '#047857',
+      bg: '#dcfce7',
+      border: '#6ee7b7',
+    },
+    canAccessSchedule && {
+      to: '/lich-lam-viec',
+      title: 'Lịch làm việc & Ca trực',
+      desc: 'Xem phân công ca trực cá nhân và khoa phòng',
+      color: '#0284c7',
+      bg: '#f0f9ff',
+      border: '#bae6fd',
+    },
+    canAccessSchedule && {
+      to: '/cham-cong',
+      title: 'Chấm công điểm danh',
+      desc: 'Điểm danh vào ca và ra ca làm việc',
+      color: '#16a34a',
+      bg: '#f0fdf4',
+      border: '#bbf7d0',
+    },
+    canAccessShiftSwap && {
+      to: '/dang-ky-ca',
+      title: 'Đăng ký nghỉ / Đổi ca',
+      desc: 'Gửi đề xuất đổi ca trực hoặc đăng ký nghỉ phép',
+      color: '#d97706',
+      bg: '#fffbeb',
+      border: '#fde68a',
+    },
+    canManage && {
+      to: '/quan-ly-nhan-su',
+      title: 'Hồ sơ nhân sự & Khoa phòng',
+      desc: 'Quản lý danh sách bác sĩ, điều dưỡng và các chuyên khoa',
+      color: '#4f46e5',
+      bg: '#eef2ff',
+      border: '#c7d2fe',
+    },
+    canManage && {
+      to: '/admin/tai-khoan',
+      title: 'Quản lý tài khoản',
+      desc: 'Tạo tài khoản, phân quyền và khóa truy cập người dùng',
+      color: '#4f46e5',
+      bg: '#eef2ff',
+      border: '#c7d2fe',
+    },
+    canManage && {
+      to: '/admin/phan-quyen',
+      title: 'Phân quyền chức năng',
+      desc: 'Cấu hình ma trận phân quyền chi tiết cho các vai trò',
+      color: '#4f46e5',
+      bg: '#eef2ff',
+      border: '#c7d2fe',
+    },
+    canManage && {
+      to: '/admin/nhat-ky-ho-so',
+      title: 'Nhật ký truy cập hồ sơ',
+      desc: 'Kiểm toán lịch sử xem và thay đổi bệnh án của nhân viên',
+      color: '#4f46e5',
+      bg: '#eef2ff',
+      border: '#c7d2fe',
+    },
+    canAccessReports && {
+      to: '/bao-cao',
+      title: canManage ? 'Báo cáo & Thống kê tổng hợp' : isDoctor ? 'Thống kê bệnh tật' : 'Báo cáo kho dược',
+      desc: 'Biểu đồ doanh thu, số lượt khám và báo cáo xuất nhập',
+      color: '#0284c7',
+      bg: '#f0f9ff',
+      border: '#bae6fd',
+    },
+  ].filter(Boolean) as BusinessItem[]
+
   const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
     color: isActive ? 'var(--primary)' : 'var(--ink)',
     fontWeight: isActive ? 750 : 600,
@@ -84,7 +244,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header style={{ background: '#fff', boxShadow: '0 3px 18px rgba(17,70,78,.08)', position: 'sticky', top: 0, zIndex: 100 }}>
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '80px', gap: '16px' }}>
         {/* Brand */}
-        <Link to={brandDestination} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 800, color: 'var(--primary-dark)', fontSize: '21px' }}>
+        <Link to={brandDestination} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 800, color: 'var(--primary-dark)', fontSize: '21px', textDecoration: 'none', flexShrink: 0 }}>
           <span style={{ width: '42px', height: '42px', display: 'grid', placeItems: 'center', borderRadius: '12px', background: 'var(--primary)', color: '#fff', fontSize: '26px', fontWeight: 700 }}>
             +
           </span>
@@ -97,7 +257,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </Link>
 
         {/* Desktop Nav */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '14px', flexWrap: 'wrap' }} className="desktop-nav">
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '14px' }} className="desktop-nav">
           {!isStaff ? (
             <>
               <NavLink to="/" style={navLinkStyle}>Trang chủ</NavLink>
@@ -116,6 +276,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       borderRadius: '20px',
                       border: '1px solid var(--primary-light)',
                       transition: 'all 0.2s',
+                      textDecoration: 'none',
                     })}
                   >
                     Hồ sơ bệnh nhân
@@ -130,6 +291,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       borderRadius: '20px',
                       border: '1px solid #bae6fd',
                       transition: 'all 0.2s',
+                      textDecoration: 'none',
                     })}
                   >
                     Lịch hẹn của tôi
@@ -138,213 +300,185 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </>
           ) : (
-            <>
-              {canAccessExamination && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {/* Lối tắt phân hệ chính của nhân sự */}
+              {primaryShortcut && (
                 <NavLink
-                  to="/kham-benh"
-                  style={({ isActive }) => ({
-                    color: isActive ? '#065f46' : '#059669',
-                    fontWeight: 700,
-                    background: isActive ? '#d1fae5' : '#ecfdf5',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    border: '1px solid #a7f3d0',
-                    transition: 'all 0.2s',
-                  })}
-                >
-                  Khám bệnh lâm sàng
-                </NavLink>
-              )}
-
-              {canAccessBilling && (
-                <NavLink
-                  to="/thu-ngan"
-                  style={({ isActive }) => ({
-                    color: isActive ? '#065f46' : '#047857',
-                    fontWeight: 700,
-                    background: isActive ? '#a7f3d0' : '#dcfce7',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    border: '1px solid #6ee7b7',
-                    transition: 'all 0.2s',
-                  })}
-                >
-                  Thu viện phí & Hóa đơn
-                </NavLink>
-              )}
-
-              {canAccessPharmacy && (
-                <NavLink
-                  to="/kho-thuoc"
-                  style={({ isActive }) => ({
-                    color: isActive ? '#065f46' : '#047857',
-                    fontWeight: 700,
-                    background: isActive ? '#a7f3d0' : '#dcfce7',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    border: '1px solid #6ee7b7',
-                    transition: 'all 0.2s',
-                  })}
-                >
-                  Nhà thuốc & Kho dược
-                </NavLink>
-              )}
-
-              {canAccessReception && (
-                <NavLink
-                  to="/tiep-don-xep-hang"
-                  style={({ isActive }) => ({
-                    color: isActive ? '#0369a1' : '#0284c7',
-                    fontWeight: 700,
-                    background: isActive ? '#e0f2fe' : '#f0f9ff',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    border: '1px solid #bae6fd',
-                    transition: 'all 0.2s',
-                  })}
-                >
-                  Tiếp đón & Hàng chờ
-                </NavLink>
-              )}
-
-              {canAccessAppointments && (
-                <NavLink
-                  to="/lich-hen"
-                  style={({ isActive }) => ({
-                    color: isActive ? '#9a3412' : '#ea580c',
-                    fontWeight: 700,
-                    background: isActive ? '#ffedd5' : '#fff7ed',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    border: '1px solid #fed7aa',
-                    transition: 'all 0.2s',
-                  })}
-                >
-                  Lịch hẹn khám
-                </NavLink>
-              )}
-
-              {canAccessPatients && (
-                <NavLink
-                  to="/quan-ly-benh-nhan"
+                  to={primaryShortcut.to}
                   style={({ isActive }) => ({
                     color: isActive ? 'var(--primary-dark)' : 'var(--primary)',
                     fontWeight: 700,
-                    background: isActive ? '#e0f2f1' : 'var(--soft)',
-                    padding: '6px 12px',
+                    background: isActive ? '#e0f2f1' : '#f0fdfa',
+                    padding: '7px 14px',
                     borderRadius: '20px',
                     border: '1px solid var(--primary-light)',
-                    transition: 'all 0.2s',
+                    textDecoration: 'none',
+                    fontSize: '13.5px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   })}
                 >
-                  Hồ sơ bệnh nhân
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }} />
+                  {primaryShortcut.label}
                 </NavLink>
               )}
 
-              {canAccessSchedule && (
-                <>
-                  <NavLink
-                    to="/lich-lam-viec"
-                    style={({ isActive }) => ({
-                      color: isActive ? '#0369a1' : '#0284c7',
-                      fontWeight: 700,
-                      background: isActive ? '#e0f2fe' : '#f0f9ff',
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      border: '1px solid #bae6fd',
-                      transition: 'all 0.2s',
-                    })}
-                  >
-                    Lịch làm việc
-                  </NavLink>
-                  <NavLink
-                    to="/cham-cong"
-                    style={({ isActive }) => ({
-                      color: isActive ? '#15803d' : '#16a34a',
-                      fontWeight: 700,
-                      background: isActive ? '#dcfce7' : '#f0fdf4',
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      border: '1px solid #bbf7d0',
-                      transition: 'all 0.2s',
-                    })}
-                  >
-                    Chấm công
-                  </NavLink>
-                </>
-              )}
-
-              {canAccessShiftSwap && (
-                <NavLink
-                  to="/dang-ky-ca"
-                  style={({ isActive }) => ({
-                    color: isActive ? '#b45309' : '#d97706',
-                    fontWeight: 700,
-                    background: isActive ? '#fef3c7' : '#fffbeb',
-                    padding: '6px 12px',
+              {/* Nút 3 sọc sổ xuống toàn bộ danh mục nghiệp vụ */}
+              <div style={{ position: 'relative' }} ref={servicesMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setServicesMenuOpen(!servicesMenuOpen)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '7px 15px',
+                    background: servicesMenuOpen ? '#0d9488' : '#ffffff',
+                    color: servicesMenuOpen ? '#ffffff' : 'var(--ink)',
+                    border: servicesMenuOpen ? '1px solid #0d9488' : '1px solid var(--border)',
                     borderRadius: '20px',
-                    border: '1px solid #fde68a',
-                    transition: 'all 0.2s',
-                  })}
-                >
-                  Nghỉ / Đổi ca
-                </NavLink>
-              )}
-
-              {canManage && (
-                <>
-                  <NavLink
-                    to="/quan-ly-nhan-su"
-                    style={({ isActive }) => ({
-                      color: isActive ? '#4338ca' : '#4f46e5',
-                      fontWeight: 700,
-                      background: isActive ? '#e0e7ff' : '#eef2ff',
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      border: '1px solid #c7d2fe',
-                      transition: 'all 0.2s',
-                    })}
-                  >
-                    Nhân sự & Khoa phòng
-                  </NavLink>
-                  <NavLink
-                    to="/admin/tai-khoan"
-                    style={({ isActive }) => ({
-                      color: isActive ? '#4338ca' : '#4f46e5',
-                      fontWeight: 700,
-                      background: isActive ? '#e0e7ff' : '#eef2ff',
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      border: '1px solid #c7d2fe',
-                      transition: 'all 0.2s',
-                    })}
-                  >
-                    Tài khoản & Phân quyền
-                  </NavLink>
-                </>
-              )}
-
-              {canAccessReports && (
-                <NavLink
-                  to="/bao-cao"
-                  style={({ isActive }) => ({
-                    color: isActive ? '#0369a1' : '#0284c7',
+                    fontSize: '13.5px',
                     fontWeight: 700,
-                    background: isActive ? '#e0f2fe' : '#f0f9ff',
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    border: '1px solid #bae6fd',
-                    transition: 'all 0.2s',
-                  })}
+                    cursor: 'pointer',
+                    boxShadow: servicesMenuOpen ? '0 4px 12px rgba(13,148,136,0.25)' : '0 1px 3px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  title="Danh sách tất cả phân hệ nghiệp vụ"
                 >
-                  {canManage
-                    ? 'Báo cáo & Thống kê'
-                    : isDoctor
-                    ? 'Thống kê bệnh'
-                    : 'Báo cáo kho dược'}
-                </NavLink>
-              )}
-            </>
+                  <span style={{ fontSize: '15px', lineHeight: 1 }}>☰</span>
+                  <span>Danh mục nghiệp vụ</span>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      transition: 'transform 0.2s ease',
+                      transform: servicesMenuOpen ? 'rotate(180deg)' : 'none',
+                    }}
+                  >
+                    ▼
+                  </span>
+                </button>
+
+                {/* Dropdown Menu sổ xuống */}
+                {servicesMenuOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 'calc(100% + 8px)',
+                      background: '#ffffff',
+                      border: '1px solid var(--border)',
+                      borderRadius: '12px',
+                      boxShadow: '0 12px 32px rgba(17,70,78,.14)',
+                      width: '380px',
+                      maxHeight: 'min(500px, calc(100vh - 100px))',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      zIndex: 300,
+                      overflow: 'hidden',
+                      animation: 'fadeInMenu 0.15s ease-out',
+                    }}
+                  >
+                    {/* Header menu sổ xuống */}
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        borderBottom: '1px solid var(--border)',
+                        background: '#f8fafc',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '14px', color: 'var(--primary)' }}>☰</span>
+                        <span style={{ fontWeight: 750, fontSize: '13px', color: 'var(--ink)', letterSpacing: '0.3px' }}>
+                          PHÂN HỆ NGHIỆP VỤ
+                        </span>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '11.5px',
+                          background: 'var(--soft)',
+                          color: 'var(--primary-dark)',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {staffBusinessList.length} chức năng
+                      </span>
+                    </div>
+
+                    {/* Danh sách các nghiệp vụ có scrollbar */}
+                    <div
+                      style={{
+                        overflowY: 'auto',
+                        flex: 1,
+                        padding: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                      }}
+                    >
+                      {staffBusinessList.map((item) => (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          onClick={() => setServicesMenuOpen(false)}
+                          style={({ isActive }) => ({
+                            display: 'block',
+                            padding: '10px 12px',
+                            borderRadius: '8px',
+                            textDecoration: 'none',
+                            background: isActive ? item.bg : 'transparent',
+                            border: isActive ? `1px solid ${item.border}` : '1px solid transparent',
+                            transition: 'all 0.15s ease',
+                          })}
+                          onMouseEnter={(e) => {
+                            if (!e.currentTarget.style.background || e.currentTarget.style.background === 'transparent') {
+                              e.currentTarget.style.background = '#f8fafc'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!e.currentTarget.getAttribute('data-active')) {
+                              // Giữ nguyên styling từ NavLink
+                            }
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span
+                              style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: item.color,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <div style={{ fontWeight: 700, fontSize: '13.5px', color: item.color }}>
+                              {item.title}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: 'var(--muted)',
+                              marginTop: '2px',
+                              paddingLeft: '16px',
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            {item.desc}
+                          </div>
+                        </NavLink>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </nav>
 
@@ -357,7 +491,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
           {currentUser ? (
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }} ref={userDropdownRef}>
               <button
                 className="btn btn-light btn-sm"
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
@@ -804,6 +938,16 @@ export const Navbar: React.FC<NavbarProps> = ({
       )}
 
       <style>{`
+        @keyframes fadeInMenu {
+          from {
+            opacity: 0;
+            transform: translateY(-6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
         @media (max-width: 960px) {
           .desktop-nav { display: none !important; }
           .mobile-toggle { display: block !important; }

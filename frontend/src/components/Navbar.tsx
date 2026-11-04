@@ -377,33 +377,44 @@ export const Navbar: React.FC<NavbarProps> = ({
                     border: '1px solid var(--border)',
                     borderRadius: '10px',
                     boxShadow: 'var(--shadow-md)',
-                    minWidth: '240px',
-                    padding: '8px 0',
+                    minWidth: '250px',
+                    maxWidth: '320px',
+                    maxHeight: 'min(480px, calc(100vh - 90px))',
+                    display: 'flex',
+                    flexDirection: 'column',
                     zIndex: 200,
+                    overflow: 'hidden',
                   }}
                 >
-                  <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', fontSize: '13px' }}>
+                  <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', fontSize: '13px', flexShrink: 0, background: '#fafafa' }}>
                     <div style={{ fontWeight: 700 }}>{currentUser.username}</div>
                     <div style={{ color: 'var(--muted)', fontSize: '11.5px' }}>{currentUser.email || 'Tài khoản hệ thống'}</div>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setUserDropdownOpen(false)
-                      onOpenChangePassword()
-                    }}
+                  <div
                     style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '10px 16px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '13.5px',
+                      overflowY: 'auto',
+                      flex: 1,
+                      padding: '4px 0',
                     }}
                   >
-                    Đổi mật khẩu
-                  </button>
+                    <button
+                      onClick={() => {
+                        setUserDropdownOpen(false)
+                        onOpenChangePassword()
+                      }}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '10px 16px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '13.5px',
+                      }}
+                    >
+                      Đổi mật khẩu
+                    </button>
 
                   {isStaff && (
                     <>
@@ -632,6 +643,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </Link>
                   )}
 
+                  </div>
+
                   <button
                     onClick={() => {
                       setUserDropdownOpen(false)
@@ -640,13 +653,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                     style={{
                       width: '100%',
                       textAlign: 'left',
-                      padding: '10px 16px',
-                      background: 'none',
+                      padding: '12px 16px',
+                      background: '#fff5f5',
                       border: 'none',
                       cursor: 'pointer',
                       fontSize: '13.5px',
-                      color: '#e02424',
-                      borderTop: '1px solid var(--border)',
+                      fontWeight: 700,
+                      color: '#dc2626',
+                      borderTop: '1px solid #fee2e2',
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
                     }}
                   >
                     Đăng xuất
@@ -682,7 +700,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div style={{ background: '#fff', borderTop: '1px solid var(--border)', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ background: '#fff', borderTop: '1px solid var(--border)', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}>
           {!isStaff ? (
             <>
               <Link to="/" onClick={() => setMobileMenuOpen(false)} style={{ padding: '6px 0', fontWeight: 650 }}>Trang chủ</Link>

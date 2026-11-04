@@ -149,6 +149,27 @@ public class MedicalExaminationService {
         return mapToMedicalRecordSummary(record, patientName);
     }
 
+    @Transactional(readOnly = true)
+    public List<MedicalRecordSummaryDto> getAllMedicalRecords(String query) {
+        List<MedicalRecord> records = medicalRecordRepository.findAll(
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+        );
+        java.util.Map<Long, String> patientNames = patientRepository.findAll().stream()
+                .collect(Collectors.toMap(Patient::getId, p -> p.getFullName() != null ? p.getFullName() : "", (a, b) -> a));
+
+        return records.stream()
+                .map(rec -> mapToMedicalRecordSummary(rec, patientNames.getOrDefault(rec.getPatientId(), "")))
+                .filter(dto -> {
+                    if (query == null || query.trim().isEmpty()) return true;
+                    String q = query.trim().toLowerCase();
+                    return (dto.getRecordCode() != null && dto.getRecordCode().toLowerCase().contains(q))
+                            || (dto.getPatientName() != null && dto.getPatientName().toLowerCase().contains(q))
+                            || (dto.getFinalDiagnosis() != null && dto.getFinalDiagnosis().toLowerCase().contains(q))
+                            || (dto.getInitialDiagnosis() != null && dto.getInitialDiagnosis().toLowerCase().contains(q));
+                })
+                .collect(Collectors.toList());
+    }
+
     // =========================================================================
     // UC-KB03: GHI TRIỆU CHỨNG & CHẨN ĐOÁN (BÁC SĨ)
     // =========================================================================

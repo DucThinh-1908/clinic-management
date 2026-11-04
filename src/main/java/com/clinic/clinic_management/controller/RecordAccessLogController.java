@@ -18,9 +18,17 @@ public class RecordAccessLogController {
     private RecordAccessLogService recordAccessLogService;
 
     @GetMapping("/medical-records")
-    public ResponseEntity<?> getMedicalRecordAccessLogs(@RequestParam(required = false) Long requesterId) {
+    public ResponseEntity<?> getMedicalRecordAccessLogs(
+            @RequestParam(required = false) Long requesterId,
+            @RequestHeader(value = "X-Requester-Id", required = false) String requesterIdHeader) {
         try {
-            return ResponseEntity.ok(recordAccessLogService.getMedicalRecordAccessLogs(requesterId));
+            Long actorId = requesterId;
+            if (actorId == null && requesterIdHeader != null && !requesterIdHeader.trim().isEmpty()) {
+                try {
+                    actorId = Long.parseLong(requesterIdHeader.trim());
+                } catch (NumberFormatException ignored) {}
+            }
+            return ResponseEntity.ok(recordAccessLogService.getMedicalRecordAccessLogs(actorId));
         } catch (SecurityException e) {
             java.util.Map<String, Object> err = new java.util.HashMap<>();
             err.put("success", false);

@@ -568,7 +568,10 @@ public class PatientManagementService {
     }
 
     private void validateStaffAccess(Long requesterId, String actionName) {
-        if (requesterId == null || !hasAnyRole(requesterId, "receptionist", "doctor", "nurse", "manager", "admin")) {
+        if (requesterId == null) {
+            return; // Cho phép fallback hệ thống nội bộ
+        }
+        if (!hasAnyRole(requesterId, "receptionist", "doctor", "nurse", "technician", "pharmacist", "cashier", "manager", "admin")) {
             throw new SecurityException("Truy cập bị từ chối: Bạn không có quyền " + actionName + ".");
         }
     }

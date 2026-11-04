@@ -16,10 +16,13 @@ import java.util.Map;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final com.clinic.clinic_management.repository.PatientRepository patientRepository;
 
     @Autowired
-    public AppointmentController(AppointmentService appointmentService) {
+    public AppointmentController(AppointmentService appointmentService,
+                                 com.clinic.clinic_management.repository.PatientRepository patientRepository) {
         this.appointmentService = appointmentService;
+        this.patientRepository = patientRepository;
     }
 
     /**
@@ -145,6 +148,26 @@ public class AppointmentController {
     public ResponseEntity<?> getAppointmentReminders(@PathVariable Long id) {
         try {
             List<AppointmentReminderDto> list = appointmentService.getRemindersByAppointmentId(id);
+            return ResponseEntity.ok(list);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Lấy danh sách lịch hẹn của bệnh nhân theo patientId hoặc userId
+     */
+    @GetMapping("/patient/{patientId}")
+    public ResponseEntity<?> getAppointmentsByPatientPath(@PathVariable Long patientId) {
+        try {
+            Long effectivePatientId = patientId;
+            java.util.Optional<com.clinic.clinic_management.entity.Patient> pOpt = patientRepository.findByUserId(patientId);
+            if (pOpt.isPresent()) {
+                effectivePatientId = pOpt.get().getId();
+            }
+            List<AppointmentResponse> list = appointmentService.getAppointments(
+                    null, null, null, null, null, effectivePatientId, null
+            );
             return ResponseEntity.ok(list);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));

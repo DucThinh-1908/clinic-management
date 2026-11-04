@@ -20,10 +20,23 @@ public class AccountManagementController {
     @Autowired
     private AccountManagementService accountManagementService;
 
+    private Long resolveAdminId(Long paramId, String headerId) {
+        if (paramId != null) return paramId;
+        if (headerId != null && !headerId.trim().isEmpty()) {
+            try {
+                return Long.parseLong(headerId.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        return null;
+    }
+
     @GetMapping
-    public ResponseEntity<?> getAllAccounts(@RequestParam(required = false) Long requesterId) {
+    public ResponseEntity<?> getAllAccounts(
+            @RequestParam(required = false) Long requesterId,
+            @RequestHeader(value = "X-Requester-Id", required = false) String requesterIdHeader) {
         try {
-            return ResponseEntity.ok(accountManagementService.getAllAccounts(requesterId));
+            Long actorId = resolveAdminId(requesterId, requesterIdHeader);
+            return ResponseEntity.ok(accountManagementService.getAllAccounts(actorId));
         } catch (SecurityException e) {
             Map<String, Object> err = new HashMap<>();
             err.put("success", false);
@@ -35,11 +48,14 @@ public class AccountManagementController {
     @PostMapping
     public ResponseEntity<?> createAccount(
             @RequestBody CreateAccountRequest request,
-            @RequestParam(required = false, defaultValue = "1") Long adminId,
+            @RequestParam(required = false) Long adminId,
+            @RequestHeader(value = "X-Requester-Id", required = false) String requesterIdHeader,
             HttpServletRequest servletRequest) {
         try {
+            Long effectiveAdminId = resolveAdminId(adminId, requesterIdHeader);
+            if (effectiveAdminId == null) effectiveAdminId = 1L;
             String ipAddress = servletRequest.getRemoteAddr();
-            UserSummary created = accountManagementService.createAccount(request, adminId, ipAddress);
+            UserSummary created = accountManagementService.createAccount(request, effectiveAdminId, ipAddress);
             return ResponseEntity.ok(created);
         } catch (SecurityException e) {
             Map<String, Object> err = new HashMap<>();
@@ -59,10 +75,13 @@ public class AccountManagementController {
             @PathVariable Long id,
             @RequestBody StatusToggleRequest request,
             @RequestParam(required = false) Long adminId,
+            @RequestHeader(value = "X-Requester-Id", required = false) String requesterIdHeader,
             HttpServletRequest servletRequest) {
         try {
+            Long effectiveAdminId = resolveAdminId(adminId, requesterIdHeader);
+            if (effectiveAdminId == null) effectiveAdminId = 1L;
             String ipAddress = servletRequest.getRemoteAddr();
-            UserSummary updated = accountManagementService.toggleAccountStatus(id, request.getIsActive(), request.getReason(), adminId, ipAddress);
+            UserSummary updated = accountManagementService.toggleAccountStatus(id, request.getIsActive(), request.getReason(), effectiveAdminId, ipAddress);
             return ResponseEntity.ok(updated);
         } catch (SecurityException e) {
             Map<String, Object> err = new HashMap<>();

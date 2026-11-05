@@ -167,10 +167,13 @@ public class StaffSchedulingService {
     // =========================================================================
     @Transactional
     public StaffResponse updateStaff(Long staffId, StaffUpdateRequest req, Long actorUserId, String ipAddress) {
-        authService.validateAdminOrManager(actorUserId);
-
         Staff staff = staffRepository.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hồ sơ nhân viên với mã ID: " + staffId));
+
+        boolean isSelf = actorUserId != null && staff.getUserId() != null && actorUserId.equals(staff.getUserId());
+        if (!isSelf) {
+            authService.validateAdminOrManager(actorUserId);
+        }
 
         if (req.fullName != null && !req.fullName.trim().isEmpty()) {
             staff.setFullName(req.fullName.trim());
@@ -193,13 +196,13 @@ public class StaffSchedulingService {
         if (req.qualification != null) {
             staff.setQualification(req.qualification.trim());
         }
-        if (req.hireDate != null) {
+        if (!isSelf && req.hireDate != null) {
             staff.setHireDate(req.hireDate);
         }
-        if (req.departmentId != null) {
+        if (!isSelf && req.departmentId != null) {
             staff.setDepartmentId(req.departmentId);
         }
-        if (req.status != null) {
+        if (!isSelf && req.status != null) {
             staff.setStatus(req.status.toUpperCase());
         }
 

@@ -63,6 +63,8 @@ public class PatientDtos {
         private String address;
         private String emergencyContactName;
         private String emergencyContactPhone;
+        private String bloodGroup;
+        private String drugAllergies;
 
         public UpdatePatientRequest() {}
 
@@ -84,6 +86,10 @@ public class PatientDtos {
         public void setEmergencyContactName(String emergencyContactName) { this.emergencyContactName = emergencyContactName; }
         public String getEmergencyContactPhone() { return emergencyContactPhone; }
         public void setEmergencyContactPhone(String emergencyContactPhone) { this.emergencyContactPhone = emergencyContactPhone; }
+        public String getBloodGroup() { return bloodGroup; }
+        public void setBloodGroup(String bloodGroup) { this.bloodGroup = bloodGroup; }
+        public String getDrugAllergies() { return drugAllergies; }
+        public void setDrugAllergies(String drugAllergies) { this.drugAllergies = drugAllergies; }
     }
 
     public static class UpdateMedicalHistoryRequest {

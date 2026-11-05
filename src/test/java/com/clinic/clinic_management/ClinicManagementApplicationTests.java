@@ -79,6 +79,21 @@ class ClinicManagementApplicationTests {
 	@Autowired
 	private com.clinic.clinic_management.controller.ReportController reportController;
 
+	@Autowired
+	private com.clinic.clinic_management.repository.StaffRepository staffRepository;
+
+	@Autowired
+	private com.clinic.clinic_management.repository.DoctorProfileRepository doctorProfileRepository;
+
+	@Autowired
+	private com.clinic.clinic_management.repository.DepartmentRepository departmentRepository;
+
+	@Autowired
+	private com.clinic.clinic_management.repository.ClinicRoomRepository clinicRoomRepository;
+
+	@Autowired
+	private com.clinic.clinic_management.repository.UserRepository userRepository;
+
 	@Test
 	@Order(1)
 	void contextLoads() {
@@ -526,6 +541,11 @@ class ClinicManagementApplicationTests {
 		assertEquals("BS.CKI Le Thi Thu Huong", created.fullName);
 		assertEquals("ACTIVE", created.status);
 		assertEquals("Nhi khoa tong quat & Dinh duong", created.specialty);
+
+		// Dọn dẹp dữ liệu nhân sự test để tránh phình rác cơ sở dữ liệu
+		doctorProfileRepository.findByStaffId(created.id).ifPresent(doctorProfileRepository::delete);
+		staffRepository.deleteById(created.id);
+		userRepository.findByUsername(randUser).ifPresent(userRepository::delete);
 	}
 
 	// UC-NS02: Cap nhat / cho nghi viec nhan vien (Quan ly)
@@ -596,6 +616,10 @@ class ClinicManagementApplicationTests {
 		// Toggle back
 		var reEnabled = staffSchedulingService.toggleRoomAvailability(room.id, 2L, "127.0.0.1");
 		assertTrue(reEnabled.isAvailable);
+
+		// Dọn dẹp dữ liệu phòng khám và chuyên khoa test để tránh phình rác cơ sở dữ liệu
+		clinicRoomRepository.deleteById(room.id);
+		departmentRepository.deleteById(dept.id);
 	}
 
 	// UC-NS04: Phan lich lam viec cho bac si (Quan ly)

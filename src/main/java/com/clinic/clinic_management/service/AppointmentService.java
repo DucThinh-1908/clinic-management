@@ -194,8 +194,16 @@ public class AppointmentService {
 
         List<Staff> staffList = staffRepository.findAll();
         List<DoctorOptionDto> doctorOptions = new ArrayList<>();
+        Set<String> seenCodes = new HashSet<>();
 
         for (Staff staff : staffList) {
+            if (staff.getStatus() != null && !"ACTIVE".equalsIgnoreCase(staff.getStatus())) {
+                continue;
+            }
+            if (staff.getStaffCode() != null && !seenCodes.add(staff.getStaffCode().trim().toUpperCase())) {
+                continue;
+            }
+
             DoctorProfile profile = doctorProfileRepository.findByStaffId(staff.getId()).orElse(null);
             if (profile == null && !staff.getStaffCode().toUpperCase().startsWith("BS")) {
                 continue;

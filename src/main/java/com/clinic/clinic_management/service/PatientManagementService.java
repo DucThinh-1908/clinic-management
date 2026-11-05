@@ -158,10 +158,13 @@ public class PatientManagementService {
      */
     @Transactional
     public PatientDetailDto updatePatient(Long id, UpdatePatientRequest request, Long requesterId, String ipAddress) {
-        validateReceptionistOrAdmin(requesterId, "cập nhật thông tin hành chính bệnh nhân");
-
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hồ sơ bệnh nhân có ID: " + id));
+
+        boolean isSelf = requesterId != null && patient.getUserId() != null && requesterId.equals(patient.getUserId());
+        if (!isSelf) {
+            validateReceptionistOrAdmin(requesterId, "cập nhật thông tin hành chính bệnh nhân");
+        }
 
         if (Boolean.FALSE.equals(patient.getIsActive())) {
             throw new IllegalStateException("Hồ sơ bệnh nhân này đang bị vô hiệu hóa hoặc đã gộp. Vui lòng kích hoạt lại trước khi chỉnh sửa.");
@@ -193,13 +196,28 @@ public class PatientManagementService {
         patient.setAddress(request.getAddress() != null ? request.getAddress().trim() : null);
         patient.setEmergencyContactName(request.getEmergencyContactName() != null ? request.getEmergencyContactName().trim() : null);
         patient.setEmergencyContactPhone(request.getEmergencyContactPhone() != null ? request.getEmergencyContactPhone().trim() : null);
+        if (request.getBloodGroup() != null && !request.getBloodGroup().trim().isEmpty()) {
+            patient.setBloodGroup(request.getBloodGroup().trim());
+        }
+        if (request.getDrugAllergies() != null) {
+            patient.setDrugAllergies(request.getDrugAllergies().trim());
+        }
         patient.setUpdatedAt(LocalDateTime.now());
 
         Patient saved = patientRepository.save(patient);
 
+        // Đồng bộ số điện thoại và email sang bảng tài khoản người dùng liên kết
+        if (patient.getUserId() != null) {
+            userRepository.findById(patient.getUserId()).ifPresent(u -> {
+                u.setPhone(phone);
+                if (patient.getEmail() != null) u.setEmail(patient.getEmail());
+                userRepository.save(u);
+            });
+        }
+
         auditLogRepository.save(new AuditLog(
                 requesterId,
-                "UPDATE_PATIENT_INFO",
+                isSelf ? "SELF_UPDATE_PATIENT_INFO" : "UPDATE_PATIENT_INFO",
                 "patients",
                 String.valueOf(saved.getId()),
                 "{\"patientCode\":\"" + saved.getPatientCode() + "\"}",

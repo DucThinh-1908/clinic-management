@@ -7,6 +7,7 @@ interface NavbarProps {
   onOpenAppointment: () => void
   onLogout: () => void
   onOpenChangePassword: () => void
+  onOpenProfile: () => void
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -14,6 +15,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAppointment,
   onLogout,
   onOpenChangePassword,
+  onOpenProfile,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
@@ -535,6 +537,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <button
                       onClick={() => {
                         setUserDropdownOpen(false)
+                        onOpenProfile()
+                      }}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '10px 16px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '13.5px',
+                        fontWeight: 650,
+                        color: 'var(--primary-dark)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        borderBottom: '1px solid var(--border)',
+                      }}
+                    >
+                      <span style={{ fontSize: '15px' }}>👤</span>
+                      <span>Thông tin cá nhân</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setUserDropdownOpen(false)
                         onOpenChangePassword()
                       }}
                       style={{
@@ -545,9 +572,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                         border: 'none',
                         cursor: 'pointer',
                         fontSize: '13.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
                       }}
                     >
-                      Đổi mật khẩu
+                      <span style={{ fontSize: '15px' }}>🔒</span>
+                      <span>Đổi mật khẩu</span>
                     </button>
 
                   {isStaff && (
@@ -930,9 +961,63 @@ export const Navbar: React.FC<NavbarProps> = ({
               Đăng nhập
             </Link>
           ) : (
-            <button onClick={() => { setMobileMenuOpen(false); onLogout(); }} className="btn btn-light" style={{ color: '#e02424', textAlign: 'center' }}>
-              Đăng xuất
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  onOpenProfile()
+                }}
+                className="btn btn-light"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontWeight: 650,
+                  color: 'var(--primary-dark)',
+                  background: '#f0fdfa',
+                  border: '1px solid var(--primary-light)',
+                }}
+              >
+                <span>👤</span>
+                <span>Thông tin cá nhân</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  onOpenChangePassword()
+                }}
+                className="btn btn-light"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontWeight: 600,
+                }}
+              >
+                <span>🔒</span>
+                <span>Đổi mật khẩu</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  onLogout()
+                }}
+                className="btn btn-light"
+                style={{
+                  color: '#e02424',
+                  textAlign: 'center',
+                  fontWeight: 700,
+                  background: '#fef2f2',
+                  border: '1px solid #fee2e2',
+                }}
+              >
+                Đăng xuất
+              </button>
+            </div>
           )}
         </div>
       )}

@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar'
 import { Footer } from './components/Footer'
 import { AppointmentModal } from './components/AppointmentModal'
 import { ChangePasswordModal } from './components/ChangePasswordModal'
+import { UserProfileModal } from './components/UserProfileModal'
 import { HomePage } from './pages/HomePage'
 import { AboutPage } from './pages/AboutPage'
 import { ContactPage } from './pages/ContactPage'
@@ -38,6 +39,7 @@ function ScrollToTop() {
 function App() {
   const [modalOpen, setModalOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [selectedSpecialty, setSelectedSpecialty] = useState('')
 
   // Current logged in user
@@ -113,6 +115,7 @@ function App() {
           onOpenAppointment={() => handleOpenAppointment()}
           onLogout={handleLogout}
           onOpenChangePassword={() => setChangePasswordOpen(true)}
+          onOpenProfile={() => setProfileOpen(true)}
         />
 
         <main className="main-content">
@@ -569,6 +572,14 @@ function App() {
           isOpen={changePasswordOpen}
           userId={currentUser?.id}
           onClose={() => setChangePasswordOpen(false)}
+        />
+
+        {/* Modal Thông tin cá nhân */}
+        <UserProfileModal
+          isOpen={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          currentUser={currentUser}
+          onOpenChangePassword={() => setChangePasswordOpen(true)}
         />
       </div>
     </BrowserRouter>

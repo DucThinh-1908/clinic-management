@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
 import type { AuthUser, RoleItem, PermissionItem, MedicalRecordAccessLog } from '../types'
 
+interface DepartmentItem {
+  id: number
+  name: string
+  code: string
+  location?: string
+  status?: string
+}
+
 interface AdminAccountPortalProps {
   currentUser: AuthUser | null
 }
@@ -29,6 +37,9 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
     else if (tab === 'audit') navigate('/admin/nhat-ky-ho-so')
   }
 
+  // Danh sách phòng ban / chuyên khoa
+  const [departments, setDepartments] = useState<DepartmentItem[]>([])
+
   // Trạng thái tài khoản người dùng
   const [accounts, setAccounts] = useState<AuthUser[]>([])
   const [searchKeyword, setSearchKeyword] = useState('')
@@ -38,6 +49,12 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const [newEmail, setNewEmail] = useState('')
   const [newPhone, setNewPhone] = useState('')
   const [newRole, setNewRole] = useState('patient')
+  const [newFullName, setNewFullName] = useState('')
+  const [newDoctorDeptId, setNewDoctorDeptId] = useState<number | ''>('')
+  const [newDoctorSpecialty, setNewDoctorSpecialty] = useState('')
+  const [newDoctorQualification, setNewDoctorQualification] = useState('')
+  const [newDoctorLicenseNumber, setNewDoctorLicenseNumber] = useState('')
+  const [newDoctorConsultationFee, setNewDoctorConsultationFee] = useState<number | ''>(200000)
   const [accountActionMessage, setAccountActionMessage] = useState<string | null>(null)
 
   // Trạng thái vai trò và quyền hạn
@@ -46,6 +63,15 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [userRoleSelection, setUserRoleSelection] = useState<string[]>([])
   const [roleMessage, setRoleMessage] = useState<string | null>(null)
+
+  // Thông tin chuyên môn bác sĩ khi gán vai trò
+  const [doctorDeptId, setDoctorDeptId] = useState<number | ''>('')
+  const [doctorSpecialty, setDoctorSpecialty] = useState('')
+  const [doctorQualification, setDoctorQualification] = useState('')
+  const [doctorLicenseNumber, setDoctorLicenseNumber] = useState('')
+  const [doctorConsultationFee, setDoctorConsultationFee] = useState<number | ''>('')
+  const [doctorFullName, setDoctorFullName] = useState('')
+  const [loadingStaffProfile, setLoadingStaffProfile] = useState(false)
 
   // Trạng thái nhật ký truy cập hồ sơ
   const [accessLogs, setAccessLogs] = useState<MedicalRecordAccessLog[]>([])
@@ -87,6 +113,19 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
     }
   }
 
+  // Fetch departments
+  const loadDepartments = async () => {
+    try {
+      const res = await fetch('/api/departments')
+      if (res.ok) {
+        const data = await res.json()
+        setDepartments(Array.isArray(data) ? data : [])
+      }
+    } catch {
+      console.error('Loi tai danh sach phong ban / chuyen khoa')
+    }
+  }
+
   // Fetch medical record access logs
   const loadAccessLogs = async () => {
     try {
@@ -103,6 +142,7 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
     if (isAuthorized) {
       loadAccounts()
       loadRolesAndPermissions()
+      loadDepartments()
       loadAccessLogs()
     }
   }, [isAuthorized])
@@ -111,6 +151,12 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault()
     setAccountActionMessage(null)
+
+    if (newRole === 'doctor' && !newDoctorDeptId) {
+      setAccountActionMessage('Lỗi: Bác sĩ bắt buộc phải được gán Khoa/Phòng ban công tác.')
+      return
+    }
+
     try {
       const res = await fetch('/api/admin/accounts?adminId=' + (currentUser?.id || 1), {
         method: 'POST',
@@ -121,6 +167,12 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
           email: newEmail,
           phone: newPhone,
           roleCodes: [newRole],
+          departmentId: newRole === 'doctor' && newDoctorDeptId ? Number(newDoctorDeptId) : undefined,
+          specialty: newRole === 'doctor' ? newDoctorSpecialty.trim() || undefined : undefined,
+          qualification: newRole === 'doctor' ? newDoctorQualification.trim() || undefined : undefined,
+          licenseNumber: newRole === 'doctor' ? newDoctorLicenseNumber.trim() || undefined : undefined,
+          consultationFee: newRole === 'doctor' && newDoctorConsultationFee ? Number(newDoctorConsultationFee) : undefined,
+          fullName: newFullName.trim() || undefined,
         }),
       })
       const data = await res.json()
@@ -131,6 +183,12 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
         setNewPassword('')
         setNewEmail('')
         setNewPhone('')
+        setNewFullName('')
+        setNewDoctorDeptId('')
+        setNewDoctorSpecialty('')
+        setNewDoctorQualification('')
+        setNewDoctorLicenseNumber('')
+        setNewDoctorConsultationFee(200000)
         loadAccounts()
       } else {
         setAccountActionMessage('Lỗi: ' + (data.message || 'Không thể tạo tài khoản'))
@@ -186,14 +244,32 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const handleSaveUserRoles = async () => {
     if (!selectedUserId) return
     setRoleMessage(null)
+
+    if (userRoleSelection.includes('doctor') && !doctorDeptId) {
+      setRoleMessage('Lỗi: Bác sĩ bắt buộc phải được gán Khoa/Phòng ban công tác.')
+      return
+    }
+
     try {
+      const bodyPayload: Record<string, any> = {
+        roleCodes: userRoleSelection,
+      }
+      if (userRoleSelection.includes('doctor')) {
+        bodyPayload.departmentId = Number(doctorDeptId)
+        bodyPayload.specialty = doctorSpecialty.trim() || undefined
+        bodyPayload.qualification = doctorQualification.trim() || undefined
+        bodyPayload.licenseNumber = doctorLicenseNumber.trim() || undefined
+        bodyPayload.consultationFee = doctorConsultationFee ? Number(doctorConsultationFee) : undefined
+        bodyPayload.fullName = doctorFullName.trim() || undefined
+      }
+
       const res = await fetch(`/api/admin/roles-permissions/users/${selectedUserId}/roles?adminId=` + (currentUser?.id || 1), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleCodes: userRoleSelection }),
+        body: JSON.stringify(bodyPayload),
       })
       if (res.ok) {
-        setRoleMessage('Cập nhật vai trò cho người dùng thành công!')
+        setRoleMessage('Cập nhật vai trò và phòng ban bác sĩ thành công!')
         loadAccounts()
       } else {
         const d = await res.json()
@@ -204,10 +280,36 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
     }
   }
 
-  const handleSelectUserForRoles = (user: AuthUser) => {
+  const handleSelectUserForRoles = async (user: AuthUser) => {
     setSelectedUserId(user.id)
     setUserRoleSelection([...user.roles])
     setRoleMessage(null)
+    setDoctorDeptId('')
+    setDoctorSpecialty('')
+    setDoctorQualification('')
+    setDoctorLicenseNumber('')
+    setDoctorConsultationFee('')
+    setDoctorFullName('')
+
+    try {
+      setLoadingStaffProfile(true)
+      const res = await fetch(`/api/staff/me?userId=${user.id}`)
+      if (res.ok) {
+        const staff = await res.json()
+        if (staff) {
+          if (staff.departmentId) setDoctorDeptId(staff.departmentId)
+          if (staff.specialty) setDoctorSpecialty(staff.specialty)
+          if (staff.qualification) setDoctorQualification(staff.qualification)
+          if (staff.licenseNumber) setDoctorLicenseNumber(staff.licenseNumber)
+          if (staff.consultationFee) setDoctorConsultationFee(staff.consultationFee)
+          if (staff.fullName) setDoctorFullName(staff.fullName)
+        }
+      }
+    } catch {
+      // Bỏ qua nếu chưa có hồ sơ
+    } finally {
+      setLoadingStaffProfile(false)
+    }
   }
 
   // Filter accounts
@@ -467,8 +569,8 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
               {roleMessage && (
                 <div
                   style={{
-                    background: '#def7ec',
-                    color: '#03543f',
+                    background: roleMessage.startsWith('Lỗi') ? '#fde8e8' : '#def7ec',
+                    color: roleMessage.startsWith('Lỗi') ? '#9b1c1c' : '#03543f',
                     padding: '10px 14px',
                     borderRadius: '8px',
                     marginBottom: '16px',
@@ -503,7 +605,7 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                   <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)', display: 'block', marginBottom: '8px' }}>
                     Danh sách vai trò gán cho người dùng:
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
                     {roles.map((role) => {
                       const isChecked = userRoleSelection.includes(role.code)
                       return (
@@ -540,6 +642,114 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                       )
                     })}
                   </div>
+
+                  {/* THIẾT LẬP KHOA PHÒNG & CHUYÊN MÔN BÁC SĨ (BẮT BUỘC) */}
+                  {userRoleSelection.includes('doctor') && (
+                    <div
+                      style={{
+                        marginTop: '16px',
+                        marginBottom: '20px',
+                        padding: '18px',
+                        background: '#f0fdfa',
+                        border: '1px solid #99f6e4',
+                        borderRadius: '12px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f766e', textTransform: 'uppercase' }}>
+                          Thiết lập Khoa/Phòng ban & Chuyên môn Bác sĩ (Bắt buộc)
+                        </span>
+                        {loadingStaffProfile && (
+                          <span style={{ fontSize: '12px', color: '#0f766e' }}>Đang nạp hồ sơ...</span>
+                        )}
+                      </div>
+
+                      <div className="field" style={{ marginBottom: '12px' }}>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600 }}>
+                          Khoa / Phòng ban công tác <span style={{ color: '#e53e3e' }}>*</span>
+                        </label>
+                        <select
+                          value={doctorDeptId}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : ''
+                            setDoctorDeptId(val)
+                            if (val && !doctorSpecialty) {
+                              const dept = departments.find((d) => d.id === val)
+                              if (dept) setDoctorSpecialty(dept.name)
+                            }
+                          }}
+                          required
+                          style={{ borderColor: !doctorDeptId ? '#e53e3e' : undefined }}
+                        >
+                          <option value="">-- Chọn Khoa / Phòng ban --</option>
+                          {departments.map((dept) => (
+                            <option key={dept.id} value={dept.id}>
+                              {dept.name} ({dept.code}){dept.location ? ` - ${dept.location}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {!doctorDeptId && (
+                          <div style={{ color: '#e53e3e', fontSize: '11.5px', marginTop: '4px' }}>
+                            Bác sĩ phải thuộc một Khoa/Phòng ban để hiển thị trong lịch làm việc và đặt lịch khám.
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Họ và tên bác sĩ</label>
+                          <input
+                            type="text"
+                            value={doctorFullName}
+                            onChange={(e) => setDoctorFullName(e.target.value)}
+                            placeholder="Ví dụ: BS.CKII Nguyễn Văn A"
+                          />
+                        </div>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Chuyên môn / Chuyên khoa</label>
+                          <input
+                            type="text"
+                            value={doctorSpecialty}
+                            onChange={(e) => setDoctorSpecialty(e.target.value)}
+                            placeholder="Ví dụ: Tim mạch tổng quát, Tai Mũi Họng..."
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Học vị / Chức danh</label>
+                          <input
+                            type="text"
+                            value={doctorQualification}
+                            onChange={(e) => setDoctorQualification(e.target.value)}
+                            placeholder="Ví dụ: Bác sĩ CKI, Thạc sĩ Y học"
+                          />
+                        </div>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Số CCHN</label>
+                          <input
+                            type="text"
+                            value={doctorLicenseNumber}
+                            onChange={(e) => setDoctorLicenseNumber(e.target.value)}
+                            placeholder="Ví dụ: 012345/BYT-CCHN"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="field" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: '12.5px', fontWeight: 600 }}>Giá khám tư vấn (VNĐ)</label>
+                        <input
+                          type="number"
+                          step="10000"
+                          min="0"
+                          value={doctorConsultationFee}
+                          onChange={(e) => setDoctorConsultationFee(e.target.value ? Number(e.target.value) : '')}
+                          placeholder="200000"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <button className="btn btn-primary" onClick={handleSaveUserRoles} style={{ width: '100%' }}>
                     Lưu vai trò cho tài khoản
@@ -711,7 +921,7 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
         {/* Create Account Modal */}
         {showCreateModal && (
           <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: newRole === 'doctor' ? '560px' : '480px', maxHeight: '90vh', overflowY: 'auto' }}>
               <button className="modal-close" onClick={() => setShowCreateModal(false)}>
                 X
               </button>
@@ -719,6 +929,21 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                 <span className="eyebrow">Quản trị hệ thống</span>
                 <h3 style={{ margin: '4px 0 0', fontSize: '20px' }}>Tạo tài khoản người dùng mới</h3>
               </div>
+
+              {accountActionMessage && accountActionMessage.startsWith('Lỗi') && (
+                <div
+                  style={{
+                    background: '#fde8e8',
+                    color: '#9b1c1c',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    fontSize: '13px',
+                  }}
+                >
+                  {accountActionMessage}
+                </div>
+              )}
 
               <form onSubmit={handleCreateAccount}>
                 <div className="field">
@@ -773,6 +998,102 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                     ))}
                   </select>
                 </div>
+
+                {/* Phần thiết lập Khoa phòng & Chuyên môn khi chọn Bác sĩ */}
+                {newRole === 'doctor' && (
+                  <div
+                    style={{
+                      marginTop: '14px',
+                      marginBottom: '18px',
+                      padding: '16px',
+                      background: '#f0fdfa',
+                      border: '1px solid #99f6e4',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: '13px', color: '#0f766e', textTransform: 'uppercase', marginBottom: '10px' }}>
+                      Thiết lập Khoa/Phòng ban & Bác sĩ (Bắt buộc)
+                    </div>
+
+                    <div className="field" style={{ marginBottom: '10px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600 }}>
+                        Khoa / Phòng ban công tác <span style={{ color: '#e53e3e' }}>*</span>
+                      </label>
+                      <select
+                        required
+                        value={newDoctorDeptId}
+                        onChange={(e) => {
+                          const val = e.target.value ? Number(e.target.value) : ''
+                          setNewDoctorDeptId(val)
+                          if (val && !newDoctorSpecialty) {
+                            const dept = departments.find((d) => d.id === val)
+                            if (dept) setNewDoctorSpecialty(dept.name)
+                          }
+                        }}
+                      >
+                        <option value="">-- Chọn Khoa / Phòng ban --</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id} value={dept.id}>
+                            {dept.name} ({dept.code}){dept.location ? ` - ${dept.location}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="field" style={{ marginBottom: '10px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600 }}>Họ và tên bác sĩ</label>
+                      <input
+                        type="text"
+                        value={newFullName}
+                        onChange={(e) => setNewFullName(e.target.value)}
+                        placeholder="Ví dụ: BS.CKI Nguyễn Văn A"
+                      />
+                    </div>
+
+                    <div className="field" style={{ marginBottom: '10px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600 }}>Chuyên môn / Chuyên khoa điều trị</label>
+                      <input
+                        type="text"
+                        value={newDoctorSpecialty}
+                        onChange={(e) => setNewDoctorSpecialty(e.target.value)}
+                        placeholder="Ví dụ: Tim mạch, Răng Hàm Mặt..."
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                      <div className="field" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: '12px', fontWeight: 600 }}>Học vị / Học hàm</label>
+                        <input
+                          type="text"
+                          value={newDoctorQualification}
+                          onChange={(e) => setNewDoctorQualification(e.target.value)}
+                          placeholder="Ví dụ: Bác sĩ CKI"
+                        />
+                      </div>
+                      <div className="field" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: '12px', fontWeight: 600 }}>Số CCHN</label>
+                        <input
+                          type="text"
+                          value={newDoctorLicenseNumber}
+                          onChange={(e) => setNewDoctorLicenseNumber(e.target.value)}
+                          placeholder="012345/BYT"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="field" style={{ marginBottom: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 600 }}>Giá khám ban đầu (VNĐ)</label>
+                      <input
+                        type="number"
+                        step="10000"
+                        min="0"
+                        value={newDoctorConsultationFee}
+                        onChange={(e) => setNewDoctorConsultationFee(e.target.value ? Number(e.target.value) : '')}
+                        placeholder="200000"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
                   <button type="button" className="btn btn-light" style={{ flex: 1 }} onClick={() => setShowCreateModal(false)}>

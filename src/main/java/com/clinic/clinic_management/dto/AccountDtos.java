@@ -12,6 +12,12 @@ public class AccountDtos {
         private String email;
         private String phone;
         private Set<String> roleCodes;
+        private Long departmentId;
+        private String specialty;
+        private String qualification;
+        private String licenseNumber;
+        private java.math.BigDecimal consultationFee;
+        private String fullName;
 
         public CreateAccountRequest() {}
 
@@ -54,6 +60,54 @@ public class AccountDtos {
         public void setRoleCodes(Set<String> roleCodes) {
             this.roleCodes = roleCodes;
         }
+
+        public Long getDepartmentId() {
+            return departmentId;
+        }
+
+        public void setDepartmentId(Long departmentId) {
+            this.departmentId = departmentId;
+        }
+
+        public String getSpecialty() {
+            return specialty;
+        }
+
+        public void setSpecialty(String specialty) {
+            this.specialty = specialty;
+        }
+
+        public String getQualification() {
+            return qualification;
+        }
+
+        public void setQualification(String qualification) {
+            this.qualification = qualification;
+        }
+
+        public String getLicenseNumber() {
+            return licenseNumber;
+        }
+
+        public void setLicenseNumber(String licenseNumber) {
+            this.licenseNumber = licenseNumber;
+        }
+
+        public java.math.BigDecimal getConsultationFee() {
+            return consultationFee;
+        }
+
+        public void setConsultationFee(java.math.BigDecimal consultationFee) {
+            this.consultationFee = consultationFee;
+        }
+
+        public String getFullName() {
+            return fullName;
+        }
+
+        public void setFullName(String fullName) {
+            this.fullName = fullName;
+        }
     }
 
     public static class StatusToggleRequest {
@@ -81,6 +135,12 @@ public class AccountDtos {
 
     public static class AssignRolesRequest {
         private Set<String> roleCodes;
+        private Long departmentId;
+        private String specialty;
+        private String qualification;
+        private String licenseNumber;
+        private java.math.BigDecimal consultationFee;
+        private String fullName;
 
         public AssignRolesRequest() {}
 
@@ -90,6 +150,54 @@ public class AccountDtos {
 
         public void setRoleCodes(Set<String> roleCodes) {
             this.roleCodes = roleCodes;
+        }
+
+        public Long getDepartmentId() {
+            return departmentId;
+        }
+
+        public void setDepartmentId(Long departmentId) {
+            this.departmentId = departmentId;
+        }
+
+        public String getSpecialty() {
+            return specialty;
+        }
+
+        public void setSpecialty(String specialty) {
+            this.specialty = specialty;
+        }
+
+        public String getQualification() {
+            return qualification;
+        }
+
+        public void setQualification(String qualification) {
+            this.qualification = qualification;
+        }
+
+        public String getLicenseNumber() {
+            return licenseNumber;
+        }
+
+        public void setLicenseNumber(String licenseNumber) {
+            this.licenseNumber = licenseNumber;
+        }
+
+        public java.math.BigDecimal getConsultationFee() {
+            return consultationFee;
+        }
+
+        public void setConsultationFee(java.math.BigDecimal consultationFee) {
+            this.consultationFee = consultationFee;
+        }
+
+        public String getFullName() {
+            return fullName;
+        }
+
+        public void setFullName(String fullName) {
+            this.fullName = fullName;
         }
     }
 

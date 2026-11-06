@@ -35,6 +35,9 @@ public class AccountManagementService {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private RolePermissionService rolePermissionService;
+
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public List<UserSummary> getAllAccounts() {
@@ -66,6 +69,10 @@ public class AccountManagementService {
             throw new IllegalArgumentException("Số điện thoại '" + request.getPhone() + "' đã được sử dụng.");
         }
 
+        if (request.getRoleCodes() != null && request.getRoleCodes().contains("doctor") && request.getDepartmentId() == null) {
+            throw new IllegalArgumentException("Bác sĩ bắt buộc phải được gán Khoa/Phòng ban công tác.");
+        }
+
         String rawPassword = request.getPassword() != null && !request.getPassword().trim().isEmpty()
                 ? request.getPassword()
                 : "123456";
@@ -80,23 +87,26 @@ public class AccountManagementService {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
-        if (request.getRoleCodes() != null && !request.getRoleCodes().isEmpty()) {
-            Set<Role> roles = new HashSet<>();
-            for (String code : request.getRoleCodes()) {
-                roleRepository.findByCode(code).ifPresent(roles::add);
-            }
-            user.setRoles(roles);
-        } else {
-            roleRepository.findByCode("patient").ifPresent(r -> user.getRoles().add(r));
-        }
-
         User savedUser = userRepository.save(user);
 
         AuditLog log = new AuditLog(adminId, "CREATE_USER", "users", String.valueOf(savedUser.getId()),
                 "{\"username\":\"" + savedUser.getUsername() + "\",\"roles\":\"" + request.getRoleCodes() + "\"}", ipAddress);
         auditLogRepository.save(log);
 
-        return authService.toUserSummary(savedUser);
+        Set<String> roleCodes = (request.getRoleCodes() != null && !request.getRoleCodes().isEmpty())
+                ? request.getRoleCodes()
+                : Set.of("patient");
+
+        com.clinic.clinic_management.dto.AccountDtos.AssignRolesRequest assignRequest = new com.clinic.clinic_management.dto.AccountDtos.AssignRolesRequest();
+        assignRequest.setRoleCodes(roleCodes);
+        assignRequest.setDepartmentId(request.getDepartmentId());
+        assignRequest.setSpecialty(request.getSpecialty());
+        assignRequest.setQualification(request.getQualification());
+        assignRequest.setLicenseNumber(request.getLicenseNumber());
+        assignRequest.setConsultationFee(request.getConsultationFee());
+        assignRequest.setFullName(request.getFullName() != null && !request.getFullName().trim().isEmpty() ? request.getFullName().trim() : savedUser.getUsername());
+
+        return rolePermissionService.assignRolesToUser(savedUser.getId(), assignRequest, adminId, ipAddress);
     }
 
     @Transactional

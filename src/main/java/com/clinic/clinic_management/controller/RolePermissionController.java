@@ -54,7 +54,7 @@ public class RolePermissionController {
             HttpServletRequest servletRequest) {
         try {
             String ipAddress = servletRequest.getRemoteAddr();
-            UserSummary updated = rolePermissionService.assignRolesToUser(userId, request.getRoleCodes(), adminId, ipAddress);
+            UserSummary updated = rolePermissionService.assignRolesToUser(userId, request, adminId, ipAddress);
             return ResponseEntity.ok(updated);
         } catch (SecurityException e) {
             Map<String, Object> err = new HashMap<>();

@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { AuthUser } from '../types'
+import keycloak from '../keycloak'
 
 interface LoginPageProps {
   onLoginSuccess: (user: AuthUser, token: string) => void
@@ -12,6 +13,55 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Khởi tạo và kiểm tra nếu vừa đăng nhập từ Keycloak chuyển về
+  useEffect(() => {
+    keycloak
+      .init({
+        onLoad: 'check-sso',
+        pkceMethod: 'S256',
+        checkLoginIframe: false,
+      })
+      .then((authenticated) => {
+        if (authenticated && keycloak.tokenParsed) {
+          const parsed = keycloak.tokenParsed as any
+          const roles: string[] = parsed.realm_access?.roles || []
+
+          const loggedInUser: AuthUser = {
+            id: Number(parsed.sub_id || 999),
+            username: parsed.preferred_username || parsed.name || 'keycloak_user',
+            email: parsed.email || '',
+            phone: parsed.phone_number || '',
+            roles: roles.filter(
+              (r) => !['offline_access', 'uma_authorization', 'default-roles-clinic-realm'].includes(r)
+            ),
+            permissions: [],
+            isActive: true,
+          }
+
+          onLoginSuccess(loggedInUser, keycloak.token || '')
+
+          const userRoles = loggedInUser.roles.map((r) => r.toLowerCase())
+          if (userRoles.includes('admin') || userRoles.includes('manager')) {
+            navigate('/admin/tai-khoan')
+          } else if (
+            userRoles.some((r) =>
+              ['receptionist', 'doctor', 'nurse', 'technician', 'pharmacist', 'cashier'].includes(r)
+            )
+          ) {
+            navigate('/quan-ly-benh-nhan')
+          } else {
+            navigate('/')
+          }
+        }
+      })
+      .catch((err) => {
+        // Bỏ qua cảnh báo đã khởi tạo do React StrictMode
+        if (!String(err).includes('already initialized')) {
+          console.error('Lỗi khởi tạo Keycloak:', err)
+        }
+      })
+  }, [navigate, onLoginSuccess])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +81,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         const userRoles = (data.user.roles || []).map((r: string) => r.toLowerCase())
         if (userRoles.includes('admin') || userRoles.includes('manager')) {
           navigate('/admin/tai-khoan')
-        } else if (userRoles.some((r: string) => ['receptionist', 'doctor', 'nurse', 'technician', 'pharmacist', 'cashier'].includes(r))) {
+        } else if (
+          userRoles.some((r: string) =>
+            ['receptionist', 'doctor', 'nurse', 'technician', 'pharmacist', 'cashier'].includes(r)
+          )
+        ) {
           navigate('/quan-ly-benh-nhan')
         } else {
           navigate('/')
@@ -44,6 +98,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleKeycloakLogin = () => {
+    keycloak.login({
+      redirectUri: window.location.origin + '/dang-nhap',
+    })
   }
 
   const fillQuickAccount = (uname: string) => {
@@ -129,6 +189,45 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             >
               {loading ? 'Đang xác thực...' : 'Đăng nhập'}
             </button>
+
+            {/* Hoặc đăng nhập bằng Keycloak SSO */}
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+              <div style={{ margin: '16px 0', borderBottom: '1px solid #e2e8f0', position: 'relative' }}>
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-10px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#fff',
+                    padding: '0 10px',
+                    fontSize: '13px',
+                    color: '#718096',
+                  }}
+                >
+                  HOẶC
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleKeycloakLogin}
+                className="btn"
+                style={{
+                  width: '100%',
+                  background: '#0284c7',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontWeight: 600,
+                  padding: '12px 0',
+                }}
+              >
+                Đăng nhập bằng Keycloak SSO
+              </button>
+            </div>
 
             <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '14px', color: 'var(--muted)' }}>
               Chưa có tài khoản?{' '}

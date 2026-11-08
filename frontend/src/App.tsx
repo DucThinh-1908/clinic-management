@@ -24,6 +24,7 @@ import { BillingPaymentPage } from './pages/BillingPaymentPage'
 import { ReportsAnalyticsPage } from './pages/ReportsAnalyticsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import type { AuthUser } from './types'
+import keycloak from './keycloak'
 import './App.css'
 
 function ScrollToTop() {
@@ -84,6 +85,9 @@ function App() {
     setCurrentUser(null)
     localStorage.removeItem('clinic_auth_user')
     localStorage.removeItem('clinic_auth_token')
+    if (keycloak.authenticated) {
+      keycloak.logout({ redirectUri: window.location.origin + '/' })
+    }
   }
 
   const isStaff = Boolean(

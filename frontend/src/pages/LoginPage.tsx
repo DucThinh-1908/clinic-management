@@ -38,6 +38,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             (r: string) => !['offline_access', 'uma_authorization', 'default-roles-clinic-realm'].includes(r)
           )
 
+          const keycloakPermissions: string[] = Array.isArray(parsed.permissions)
+            ? parsed.permissions
+            : (parsed.resource_access?.['clinic-frontend']?.roles || [])
+
           try {
             // Đồng bộ tài khoản Keycloak vào database MySQL
             const res = await fetch('/api/auth/sync-keycloak', {
@@ -48,6 +52,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 email: parsed.email || '',
                 fullName: parsed.name || '',
                 roles: filteredRoles,
+                permissions: keycloakPermissions,
               }),
             })
             const data = await res.json()
@@ -78,7 +83,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             email: parsed.email || '',
             phone: '',
             roles: filteredRoles,
-            permissions: [],
+            permissions: keycloakPermissions,
             isActive: true,
           }
           onLoginSuccess(fallbackUser, keycloak.token || '')

@@ -556,6 +556,49 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
 
         {/* TAB 2: PHÂN QUYỀN & GÁN VAI TRÒ */}
         {activeTab === 'roles' && (
+          <div>
+            <div style={{
+              background: 'linear-gradient(135deg, #eef9fa 0%, #e0f2fe 100%)',
+              border: '1.5px solid #087f8c',
+              borderRadius: '16px',
+              padding: '20px 24px',
+              marginBottom: '24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '16px',
+              boxShadow: '0 4px 12px rgba(8, 127, 140, 0.1)'
+            }}>
+              <div>
+                <h3 style={{ margin: '0 0 6px', color: '#087f8c', fontSize: '17px', fontWeight: 700 }}>
+                  Quản trị Phân quyền Tập trung trên Keycloak Console
+                </h3>
+                <p style={{ margin: 0, color: '#334155', fontSize: '13.5px', lineHeight: 1.5 }}>
+                  Hệ thống đã kích hoạt Composite Roles và Phân quyền trực quan trên Keycloak. Bạn có thể mở giao diện Keycloak để tích chọn quyền cho từng vai trò.
+                </p>
+              </div>
+              <a
+                href="http://localhost:8081/admin/master/console/#/clinic-realm/roles"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-primary"
+                style={{
+                  background: '#087f8c',
+                  borderColor: '#087f8c',
+                  padding: '10px 20px',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  borderRadius: '10px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Mở Keycloak Phân quyền ↗
+              </a>
+            </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             {/* Left: User role assignment */}
             <div style={{ background: '#ffffff', borderRadius: '16px', padding: '28px', border: '1px solid var(--border)' }}>
@@ -803,6 +846,7 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                 ))}
               </div>
             </div>
+          </div>
           </div>
         )}
 

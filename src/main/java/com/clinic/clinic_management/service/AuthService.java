@@ -291,7 +291,7 @@ public class AuthService {
     }
 
         @Transactional
-    public LoginResponse syncKeycloakUser(String username, String email, String fullName, Set<String> keycloakRoles, String ipAddress) {
+    public LoginResponse syncKeycloakUser(String username, String email, String fullName, Set<String> keycloakRoles, Set<String> keycloakPermissions, String ipAddress) {
         if (username == null || username.trim().isEmpty()) {
             return new LoginResponse(false, "Username từ Keycloak không hợp lệ.", null, null);
         }
@@ -336,6 +336,11 @@ public class AuthService {
         auditLogRepository.save(log);
 
         UserSummary summary = toUserSummary(savedUser);
+        if (keycloakPermissions != null && !keycloakPermissions.isEmpty()) {
+            Set<String> combined = new HashSet<>(summary.getPermissions() != null ? summary.getPermissions() : Collections.emptySet());
+            combined.addAll(keycloakPermissions);
+            summary.setPermissions(combined);
+        }
         return new LoginResponse(true, "Đồng bộ Keycloak thành công", null, summary);
     }
 

@@ -117,7 +117,11 @@ public class AuthController {
             List<String> rolesList = (List<String>) payload.get("roles");
             Set<String> roles = rolesList != null ? new HashSet<>(rolesList) : Collections.emptySet();
 
-            LoginResponse response = authService.syncKeycloakUser(username, email, fullName, roles, getClientIp(request));
+                        @SuppressWarnings("unchecked")
+            List<String> permissionsList = (List<String>) payload.get("permissions");
+            Set<String> permissions = permissionsList != null ? new HashSet<>(permissionsList) : Collections.emptySet();
+
+            LoginResponse response = authService.syncKeycloakUser(username, email, fullName, roles, permissions, getClientIp(request));
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));

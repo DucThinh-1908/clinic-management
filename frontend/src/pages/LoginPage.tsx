@@ -22,41 +22,62 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         pkceMethod: 'S256',
         checkLoginIframe: false,
       })
-      .then((authenticated) => {
+      .then(async (authenticated) => {
         if (authenticated && keycloak.tokenParsed) {
           const parsed = keycloak.tokenParsed as any
-          const roles: string[] = parsed.realm_access?.roles || []
+          const rawRoles: string[] = parsed.realm_access?.roles || []
+          const filteredRoles = rawRoles.filter(
+            (r: string) => !['offline_access', 'uma_authorization', 'default-roles-clinic-realm'].includes(r)
+          )
 
-          const loggedInUser: AuthUser = {
-            id: Number(parsed.sub_id || 999),
+          try {
+            // Đồng bộ tài khoản Keycloak vào database MySQL
+            const res = await fetch('/api/auth/sync-keycloak', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: parsed.preferred_username || parsed.name || 'keycloak_user',
+                email: parsed.email || '',
+                fullName: parsed.name || '',
+                roles: filteredRoles,
+              }),
+            })
+            const data = await res.json()
+            if (data.success && data.user) {
+              onLoginSuccess(data.user, keycloak.token || '')
+              const userRoles = (data.user.roles || []).map((r: string) => r.toLowerCase())
+              if (userRoles.includes('admin') || userRoles.includes('manager')) {
+                navigate('/admin/tai-khoan')
+              } else if (
+                userRoles.some((r: string) =>
+                  ['receptionist', 'doctor', 'nurse', 'technician', 'pharmacist', 'cashier'].includes(r)
+                )
+              ) {
+                navigate('/quan-ly-benh-nhan')
+              } else {
+                navigate('/')
+              }
+              return
+            }
+          } catch (err) {
+            console.error('Lỗi gọi API đồng bộ Keycloak:', err)
+          }
+
+          // Fallback nếu chưa kết nối được backend
+          const fallbackUser: AuthUser = {
+            id: 999,
             username: parsed.preferred_username || parsed.name || 'keycloak_user',
             email: parsed.email || '',
-            phone: parsed.phone_number || '',
-            roles: roles.filter(
-              (r) => !['offline_access', 'uma_authorization', 'default-roles-clinic-realm'].includes(r)
-            ),
+            phone: '',
+            roles: filteredRoles,
             permissions: [],
             isActive: true,
           }
-
-          onLoginSuccess(loggedInUser, keycloak.token || '')
-
-          const userRoles = loggedInUser.roles.map((r) => r.toLowerCase())
-          if (userRoles.includes('admin') || userRoles.includes('manager')) {
-            navigate('/admin/tai-khoan')
-          } else if (
-            userRoles.some((r) =>
-              ['receptionist', 'doctor', 'nurse', 'technician', 'pharmacist', 'cashier'].includes(r)
-            )
-          ) {
-            navigate('/quan-ly-benh-nhan')
-          } else {
-            navigate('/')
-          }
+          onLoginSuccess(fallbackUser, keycloak.token || '')
+          navigate('/')
         }
       })
       .catch((err) => {
-        // Bỏ qua cảnh báo đã khởi tạo do React StrictMode
         if (!String(err).includes('already initialized')) {
           console.error('Lỗi khởi tạo Keycloak:', err)
         }
@@ -111,6 +132,46 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setPassword('123456')
     setError(null)
   }
+
+    useEffect(() => {
+    keycloak
+      .init({
+        onLoad: 'check-sso',
+        pkceMethod: 'S256',
+        checkLoginIframe: false,
+      })
+      .then(async (authenticated) => {
+        if (authenticated && keycloak.tokenParsed) {
+          const parsed = keycloak.tokenParsed as any
+          const rawRoles: string[] = parsed.realm_access?.roles || []
+          const filteredRoles = rawRoles.filter(
+            (r) => !['offline_access', 'uma_authorization', 'default-roles-clinic-realm'].includes(r)
+          )
+
+          // Gọi Backend để đồng bộ và nhận AuthUser với ID thực trong MySQL
+          try {
+            const res = await fetch('/api/auth/sync-keycloak', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: parsed.preferred_username || parsed.name,
+                email: parsed.email || '',
+                fullName: parsed.name || '',
+                roles: filteredRoles,
+              }),
+            })
+            const data = await res.json()
+            if (data.success && data.user) {
+              onLoginSuccess(data.user, keycloak.token || '')
+              navigate('/')
+              return
+            }
+          } catch (e) {
+            console.error('Lỗi đồng bộ Keycloak user:', e)
+          }
+        }
+      })
+  }, [navigate, onLoginSuccess])
 
   return (
     <div style={{ background: '#f5fafb', minHeight: '80vh', padding: '60px 0' }}>

@@ -289,5 +289,55 @@ public class AuthService {
             throw new SecurityException("Truy cập bị từ chối: Chỉ quản trị viên (Admin) và Quản lý phòng khám (Manager) mới có quyền quản lý tài khoản, phân quyền gán vai trò và xem nhật ký truy cập hồ sơ.");
         }
     }
+
+        @Transactional
+    public LoginResponse syncKeycloakUser(String username, String email, String fullName, Set<String> keycloakRoles, String ipAddress) {
+        if (username == null || username.trim().isEmpty()) {
+            return new LoginResponse(false, "Username từ Keycloak không hợp lệ.", null, null);
+        }
+
+        String cleanUsername = username.trim();
+        // 1. Kiểm tra xem user này đã tồn tại trong database MySQL chưa
+        Optional<User> userOpt = userRepository.findByUsername(cleanUsername);
+
+        User user;
+        if (userOpt.isPresent()) {
+            user = userOpt.get();
+        } else {
+            // 2. Nếu chưa có, tự động tạo mới người dùng nội bộ (Just-In-Time Provisioning)
+            user = new User();
+            user.setUsername(cleanUsername);
+            user.setPasswordHash("OAUTH2_KEYCLOAK_MANAGED"); // Mật khẩu do Keycloak quản lý
+            user.setEmail(email != null && !email.trim().isEmpty() ? email.trim() : null);
+            user.setIsActive(true);
+            user.setIsVerified(true);
+            user.setCreatedAt(LocalDateTime.now());
+        }
+
+        user.setUpdatedAt(LocalDateTime.now());
+        user.setLastLoginAt(LocalDateTime.now());
+
+        // 3. Đồng bộ vai trò từ Keycloak vào bảng roles trong MySQL
+        if (keycloakRoles != null && !keycloakRoles.isEmpty()) {
+            Set<Role> roles = new HashSet<>();
+            for (String roleCode : keycloakRoles) {
+                roleRepository.findByCode(roleCode.toLowerCase()).ifPresent(roles::add);
+            }
+            if (!roles.isEmpty()) {
+                user.setRoles(roles);
+            }
+        }
+
+        User savedUser = userRepository.save(user);
+
+        // 4. Ghi nhật ký đăng nhập (Audit Log)
+        AuditLog log = new AuditLog(savedUser.getId(), "KEYCLOAK_LOGIN", "users", String.valueOf(savedUser.getId()),
+                "{\"username\":\"" + cleanUsername + "\",\"authProvider\":\"KEYCLOAK\"}", ipAddress);
+        auditLogRepository.save(log);
+
+        UserSummary summary = toUserSummary(savedUser);
+        return new LoginResponse(true, "Đồng bộ Keycloak thành công", null, summary);
+    }
+
 }
 

@@ -7,8 +7,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -101,4 +105,31 @@ public class AuthController {
             return ResponseEntity.badRequest().body(res);
         }
     }
+
+    @PostMapping("/sync-keycloak")
+    public ResponseEntity<?> syncKeycloak(@RequestBody Map<String, Object> payload, HttpServletRequest request) {
+        try {
+            String username = (String) payload.get("username");
+            String email = (String) payload.get("email");
+            String fullName = (String) payload.get("fullName");
+            
+            @SuppressWarnings("unchecked")
+            List<String> rolesList = (List<String>) payload.get("roles");
+            Set<String> roles = rolesList != null ? new HashSet<>(rolesList) : Collections.emptySet();
+
+            LoginResponse response = authService.syncKeycloakUser(username, email, fullName, roles, getClientIp(request));
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+        private String getClientIp(HttpServletRequest request) {
+        String xf = request.getHeader("X-Forwarded-For");
+        if (xf != null && !xf.isEmpty()) {
+            return xf.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
+
 }

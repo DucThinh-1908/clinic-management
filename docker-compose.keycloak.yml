@@ -28,7 +28,7 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./keycloak-theme/careplus:/opt/keycloak/themes/careplus
+      - ./keycloak-theme:/opt/keycloak/themes
     depends_on:
       - keycloak-db
 

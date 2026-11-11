@@ -56,6 +56,57 @@ function App() {
     return null
   })
 
+  // Tự động kiểm tra và đồng bộ lại phân quyền mới nhất từ Keycloak/MySQL khi người dùng tải lại trang
+  useEffect(() => {
+    if (!currentUser || !currentUser.id) return
+
+    // Nếu không phải trên trang /dang-nhap thì khởi tạo check-sso ngầm để lấy token mới nhất từ Keycloak
+    if (!window.location.pathname.includes('/dang-nhap') && !window.location.pathname.includes('/login')) {
+      keycloak
+        .init({
+          onLoad: 'check-sso',
+          pkceMethod: 'S256',
+          checkLoginIframe: false,
+        })
+        .then(async (authenticated) => {
+          if (authenticated && keycloak.tokenParsed) {
+            await keycloak.updateToken(9999).catch(() => {})
+            const parsed = keycloak.tokenParsed as any
+            const rawRoles: string[] = parsed.realm_access?.roles || []
+            const filteredRoles = rawRoles.filter(
+              (r: string) => !['offline_access', 'uma_authorization', 'default-roles-clinic-realm'].includes(r)
+            )
+            const keycloakPermissions: string[] = Array.isArray(parsed.permissions)
+              ? parsed.permissions
+              : (parsed.resource_access?.['clinic-frontend']?.roles || [])
+
+            const res = await fetch('/api/auth/sync-keycloak', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username: parsed.preferred_username || currentUser.username,
+                email: parsed.email || currentUser.email || '',
+                fullName: parsed.name || '',
+                roles: filteredRoles,
+                permissions: keycloakPermissions,
+              }),
+            })
+            if (res.ok) {
+              const data = await res.json()
+              if (data.success && data.user) {
+                setCurrentUser(data.user)
+                localStorage.setItem('clinic_auth_user', JSON.stringify(data.user))
+                if (keycloak.token) {
+                  localStorage.setItem('clinic_auth_token', keycloak.token)
+                }
+              }
+            }
+          }
+        })
+        .catch(() => {})
+    }
+  }, [])
+
   const handleOpenAppointment = (specialty?: string) => {
     setSelectedSpecialty(specialty || '')
     setModalOpen(true)
@@ -101,12 +152,28 @@ function App() {
   const getDefaultStaffPath = (user: AuthUser | null) => {
     if (!user || !user.roles) return '/'
     const roles = user.roles.map((r) => r.toLowerCase())
-    if (roles.includes('admin') || roles.includes('manager')) return '/admin/tai-khoan'
-    if (roles.includes('cashier')) return '/thu-ngan'
-    if (roles.includes('pharmacist')) return '/kho-thuoc'
-    if (roles.includes('doctor') || roles.includes('nurse')) return '/kham-benh'
-    if (roles.includes('receptionist')) return '/tiep-don'
-    return '/quan-ly-benh-nhan'
+    const perms = (user.permissions || []).map((p) => p.toUpperCase())
+    const isSuperAdmin = roles.includes('admin') || roles.includes('manager')
+
+    if (isSuperAdmin) return '/admin/tai-khoan'
+
+    // Ưu tiên trang nghiệp vụ chính của vai trò NẾU vai trò đó vẫn còn giữ quyền trên Keycloak
+    if (roles.includes('cashier') && perms.includes('INVOICE_CREATE')) return '/thu-ngan'
+    if (roles.includes('pharmacist') && perms.includes('DISPENSATION_MANAGE')) return '/kho-thuoc'
+    if ((roles.includes('doctor') || roles.includes('nurse')) && (perms.includes('MEDICAL_RECORD_WRITE') || perms.includes('PRESCRIPTION_CREATE'))) return '/kham-benh'
+    if (roles.includes('receptionist') && perms.includes('APPOINTMENT_MANAGE')) return '/tiep-don'
+
+    // Nếu quyền mặc định đã bị gỡ trên Keycloak, chuyển đến chức năng đầu tiên mà tài khoản ĐƯỢC cấp quyền
+    if (perms.includes('USER_VIEW') || perms.includes('USER_CREATE') || perms.includes('USER_LOCK')) return '/admin/tai-khoan'
+    if (perms.includes('ROLE_ASSIGN') || perms.includes('ROLE_MANAGE')) return '/admin/phan-quyen'
+    if (perms.includes('RECORD_ACCESS_VIEW')) return '/admin/nhat-ky-ho-so'
+    if (perms.includes('DISPENSATION_MANAGE')) return '/kho-thuoc'
+    if (perms.includes('MEDICAL_RECORD_WRITE') || perms.includes('PRESCRIPTION_CREATE')) return '/kham-benh'
+    if (perms.includes('INVOICE_CREATE')) return '/thu-ngan'
+    if (perms.includes('APPOINTMENT_MANAGE')) return '/tiep-don'
+    if (perms.includes('MEDICAL_RECORD_VIEW')) return '/quan-ly-benh-nhan'
+
+    return '/lich-lam-viec'
   }
 
   return (
@@ -229,11 +296,11 @@ function App() {
             <Route path="/quen-mat-khau" element={<ForgotPasswordPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-            {/* Quản lý hồ sơ bệnh nhân (Bác sĩ, Điều dưỡng, Lễ tân, Thu ngân, Admin, Quản lý & Bệnh nhân) */}
+            {/* Quản lý hồ sơ bệnh nhân */}
             <Route
               path="/quan-ly-benh-nhan"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']} allowedPermissions={['MEDICAL_RECORD_VIEW', 'MEDICAL_RECORD_WRITE']}>
                   <PatientManagementPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -241,7 +308,7 @@ function App() {
             <Route
               path="/ho-so-benh-nhan"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']} allowedPermissions={['MEDICAL_RECORD_VIEW', 'MEDICAL_RECORD_WRITE']}>
                   <PatientManagementPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -249,17 +316,17 @@ function App() {
             <Route
               path="/patient-portal"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'receptionist', 'cashier', 'admin', 'manager', 'patient']} allowedPermissions={['MEDICAL_RECORD_VIEW', 'MEDICAL_RECORD_WRITE']}>
                   <PatientManagementPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
             />
 
-            {/* Quản trị tài khoản, phân quyền & nhật ký hồ sơ (Chỉ Quản trị viên & Quản lý) */}
+            {/* Quản trị tài khoản, phân quyền & nhật ký hồ sơ */}
             <Route
               path="/admin/tai-khoan"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']} allowedPermissions={['USER_VIEW', 'USER_CREATE', 'USER_LOCK', 'ROLE_ASSIGN', 'ROLE_MANAGE', 'RECORD_ACCESS_VIEW']}>
                   <AdminAccountPortal currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -267,7 +334,7 @@ function App() {
             <Route
               path="/admin/phan-quyen"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']} allowedPermissions={['ROLE_ASSIGN', 'ROLE_MANAGE']}>
                   <AdminAccountPortal currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -275,7 +342,7 @@ function App() {
             <Route
               path="/admin/nhat-ky-ho-so"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager']} allowedPermissions={['RECORD_ACCESS_VIEW']}>
                   <AdminAccountPortal currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -329,7 +396,7 @@ function App() {
             <Route
               path="/lich-hen"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']} allowedPermissions={['APPOINTMENT_MANAGE']}>
                   <AppointmentManagementPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -337,7 +404,7 @@ function App() {
             <Route
               path="/dat-lich"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']} allowedPermissions={['APPOINTMENT_MANAGE']}>
                   <AppointmentManagementPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -345,17 +412,17 @@ function App() {
             <Route
               path="/quan-ly-lich-hen"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'doctor', 'nurse', 'admin', 'manager', 'patient']} allowedPermissions={['APPOINTMENT_MANAGE']}>
                   <AppointmentManagementPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
             />
 
-            {/* Tiếp đón và xếp hàng khám bệnh (Lễ tân, Điều dưỡng, Thu ngân, Bác sĩ, Quản lý, Admin) */}
+            {/* Tiếp đón và xếp hàng khám bệnh */}
             <Route
               path="/tiep-don"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']} allowedPermissions={['APPOINTMENT_MANAGE']}>
                   <ReceptionQueuePage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -363,7 +430,7 @@ function App() {
             <Route
               path="/hang-cho"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']} allowedPermissions={['APPOINTMENT_MANAGE']}>
                   <ReceptionQueuePage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -371,7 +438,7 @@ function App() {
             <Route
               path="/tiep-don-xep-hang"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']} allowedPermissions={['APPOINTMENT_MANAGE']}>
                   <ReceptionQueuePage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -379,17 +446,17 @@ function App() {
             <Route
               path="/man-hinh-goi-so"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['receptionist', 'nurse', 'cashier', 'doctor', 'admin', 'manager']} allowedPermissions={['APPOINTMENT_MANAGE']}>
                   <ReceptionQueuePage currentUser={currentUser} />
                 </ProtectedRoute>
               }
             />
 
-            {/* Khám bệnh lâm sàng & Cận lâm sàng (Bác sĩ, Điều dưỡng, Kỹ thuật viên, Quản lý, Admin) */}
+            {/* Khám bệnh lâm sàng & Cận lâm sàng */}
             <Route
               path="/kham-benh"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']} allowedPermissions={['MEDICAL_RECORD_WRITE', 'PRESCRIPTION_CREATE']}>
                   <MedicalExaminationPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -397,7 +464,7 @@ function App() {
             <Route
               path="/phong-kham-bac-si"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']} allowedPermissions={['MEDICAL_RECORD_WRITE', 'PRESCRIPTION_CREATE']}>
                   <MedicalExaminationPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -405,7 +472,7 @@ function App() {
             <Route
               path="/phong-kham"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']} allowedPermissions={['MEDICAL_RECORD_WRITE', 'PRESCRIPTION_CREATE']}>
                   <MedicalExaminationPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -413,17 +480,17 @@ function App() {
             <Route
               path="/ghi-nhan-sinh-hieu"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['doctor', 'nurse', 'technician', 'admin', 'manager']} allowedPermissions={['MEDICAL_RECORD_WRITE', 'PRESCRIPTION_CREATE']}>
                   <MedicalExaminationPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
             />
 
-            {/* Kê đơn & Kho thuốc Dược sĩ (Dược sĩ, Quản lý, Admin) */}
+            {/* Kê đơn & Kho thuốc Dược sĩ */}
             <Route
               path="/kho-thuoc"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']} allowedPermissions={['DISPENSATION_MANAGE']}>
                   <PharmacyInventoryPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -431,7 +498,7 @@ function App() {
             <Route
               path="/duoc-kho-thuoc"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']} allowedPermissions={['DISPENSATION_MANAGE']}>
                   <PharmacyInventoryPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -439,7 +506,7 @@ function App() {
             <Route
               path="/cap-phat-thuoc"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']} allowedPermissions={['DISPENSATION_MANAGE']}>
                   <PharmacyInventoryPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -447,7 +514,7 @@ function App() {
             <Route
               path="/nha-thuoc"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']} allowedPermissions={['DISPENSATION_MANAGE']}>
                   <PharmacyInventoryPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -455,17 +522,17 @@ function App() {
             <Route
               path="/ke-don-thuoc"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['pharmacist', 'admin', 'manager']} allowedPermissions={['DISPENSATION_MANAGE', 'PRESCRIPTION_CREATE']}>
                   <PharmacyInventoryPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
             />
 
-            {/* Phân hệ 3.9: Thanh toán và Viện phí (Thu ngân, Quản lý, Admin) */}
+            {/* Phân hệ 3.9: Thanh toán và Viện phí */}
             <Route
               path="/thu-ngan"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']} allowedPermissions={['INVOICE_CREATE']}>
                   <BillingPaymentPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -473,7 +540,7 @@ function App() {
             <Route
               path="/vien-phi"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']} allowedPermissions={['INVOICE_CREATE']}>
                   <BillingPaymentPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -481,7 +548,7 @@ function App() {
             <Route
               path="/thanh-toan"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']} allowedPermissions={['INVOICE_CREATE']}>
                   <BillingPaymentPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -489,7 +556,7 @@ function App() {
             <Route
               path="/hoa-don"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']} allowedPermissions={['INVOICE_CREATE']}>
                   <BillingPaymentPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -497,17 +564,17 @@ function App() {
             <Route
               path="/bang-gia-dich-vu"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['cashier', 'admin', 'manager']} allowedPermissions={['INVOICE_CREATE']}>
                   <BillingPaymentPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
             />
 
-            {/* Phân hệ 3.10: Báo cáo & Thống kê (Quản lý, Bác sĩ, Dược sĩ, Admin) */}
+            {/* Phân hệ 3.10: Báo cáo & Thống kê */}
             <Route
               path="/bao-cao"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'doctor', 'pharmacist']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'doctor', 'pharmacist']} allowedPermissions={['MEDICAL_RECORD_WRITE', 'DISPENSATION_MANAGE']}>
                   <ReportsAnalyticsPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -515,7 +582,7 @@ function App() {
             <Route
               path="/thong-ke"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'doctor', 'pharmacist']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'doctor', 'pharmacist']} allowedPermissions={['MEDICAL_RECORD_WRITE', 'DISPENSATION_MANAGE']}>
                   <ReportsAnalyticsPage currentUser={currentUser} />
                 </ProtectedRoute>
               }
@@ -539,7 +606,7 @@ function App() {
             <Route
               path="/bao-cao-duoc"
               element={
-                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'pharmacist']}>
+                <ProtectedRoute currentUser={currentUser} allowedRoles={['admin', 'manager', 'pharmacist']} allowedPermissions={['DISPENSATION_MANAGE']}>
                   <ReportsAnalyticsPage currentUser={currentUser} />
                 </ProtectedRoute>
               }

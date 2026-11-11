@@ -42,8 +42,33 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const userRoles = (currentUser?.roles || []).map((r) => r.toLowerCase())
 
-  const canManage = Boolean(
+  const userPermissions = (currentUser?.permissions || []).map((p) => p.toUpperCase())
+
+  const isSuperAdmin = Boolean(
     currentUser && (userRoles.includes('admin') || userRoles.includes('manager'))
+  )
+
+  const canManageAccounts =
+    isSuperAdmin ||
+    userPermissions.includes('USER_VIEW') ||
+    userPermissions.includes('USER_CREATE') ||
+    userPermissions.includes('USER_LOCK')
+
+  const canManageRoles =
+    isSuperAdmin ||
+    userPermissions.includes('ROLE_MANAGE') ||
+    userPermissions.includes('ROLE_ASSIGN')
+
+  const canViewAuditLog =
+    isSuperAdmin ||
+    userPermissions.includes('RECORD_ACCESS_VIEW')
+
+  const canManageHR = isSuperAdmin
+
+  const hasAdminPerm = canManageAccounts || canManageRoles || canViewAuditLog
+
+  const canManage = Boolean(
+    currentUser && (isSuperAdmin || hasAdminPerm)
   )
 
   const isStaff = Boolean(
@@ -59,7 +84,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const isDoctor = userRoles.includes('doctor')
   const isNurse = userRoles.includes('nurse')
-  const isTechnician = userRoles.includes('technician')
   const isReceptionist = userRoles.includes('receptionist')
   const isCashier = userRoles.includes('cashier')
   const isPharmacist = Boolean(
@@ -67,46 +91,72 @@ export const Navbar: React.FC<NavbarProps> = ({
       (userRoles.includes('pharmacist') || currentUser.username?.toLowerCase().includes('pharm'))
   )
 
-  // Quyền truy cập các phân hệ nghiệp vụ
-  const canAccessBilling = isCashier || canManage
-  const canAccessExamination = isDoctor || isNurse || isTechnician || canManage
-  const canAccessPharmacy = isPharmacist || canManage
-  const canAccessReception = isReceptionist || isNurse || isCashier || isDoctor || canManage
-  const canAccessAppointments = isReceptionist || isDoctor || canManage
-  const canAccessPatients = isDoctor || isNurse || isReceptionist || isCashier || canManage
+  // Quyền truy cập các phân hệ nghiệp vụ dựa hoàn toàn theo quyền hạn (Associated roles) từ Keycloak
+  const canAccessBilling = isSuperAdmin || userPermissions.includes('INVOICE_CREATE')
+  const canAccessExamination = isSuperAdmin || userPermissions.includes('MEDICAL_RECORD_WRITE') || userPermissions.includes('PRESCRIPTION_CREATE')
+  const canAccessPharmacy = isSuperAdmin || userPermissions.includes('DISPENSATION_MANAGE')
+  const canAccessReception = isSuperAdmin || userPermissions.includes('APPOINTMENT_MANAGE')
+  const canAccessAppointments = isSuperAdmin || userPermissions.includes('APPOINTMENT_MANAGE')
+  const canAccessPatients = isSuperAdmin || userPermissions.includes('MEDICAL_RECORD_VIEW') || userPermissions.includes('MEDICAL_RECORD_WRITE')
   const canAccessSchedule = isStaff
-  const canAccessShiftSwap = isStaff && !canManage
-  const canAccessReports = canManage || isDoctor || isPharmacist
+  const canAccessShiftSwap = isStaff && !isSuperAdmin
+  const canAccessReports = isSuperAdmin || (isDoctor && canAccessExamination) || (isPharmacist && canAccessPharmacy)
 
   const brandDestination = isStaff
-    ? isCashier
+    ? (isCashier && canAccessBilling)
       ? '/thu-ngan'
-      : isDoctor
+      : (isDoctor && canAccessExamination)
       ? '/kham-benh'
-      : isPharmacist
+      : (isPharmacist && canAccessPharmacy)
       ? '/kho-thuoc'
-      : isReceptionist
+      : (isReceptionist && canAccessReception)
       ? '/tiep-don'
-      : isNurse
+      : (isNurse && canAccessExamination)
       ? '/kham-benh'
-      : canManage
+      : canManageAccounts
       ? '/admin/tai-khoan'
-      : '/quan-ly-benh-nhan'
+      : canManageRoles
+      ? '/admin/phan-quyen'
+      : canViewAuditLog
+      ? '/admin/nhat-ky-ho-so'
+      : canAccessPharmacy
+      ? '/kho-thuoc'
+      : canAccessExamination
+      ? '/kham-benh'
+      : canAccessBilling
+      ? '/thu-ngan'
+      : canAccessReception
+      ? '/tiep-don'
+      : canAccessPatients
+      ? '/quan-ly-benh-nhan'
+      : '/lich-lam-viec'
     : '/'
 
-  // Lối tắt chính nhanh cho vai trò nhân sự
-  const primaryShortcut = isCashier
+  // Lối tắt chính nhanh cho vai trò nhân sự (chỉ hiện nếu vẫn giữ quyền tương ứng trên Keycloak)
+  const primaryShortcut = (isCashier && canAccessBilling)
     ? { to: '/thu-ngan', label: 'Thu viện phí' }
-    : isDoctor
+    : (isDoctor && canAccessExamination)
     ? { to: '/kham-benh', label: 'Khám bệnh lâm sàng' }
-    : isPharmacist
+    : (isPharmacist && canAccessPharmacy)
     ? { to: '/kho-thuoc', label: 'Kho dược & Nhà thuốc' }
-    : isReceptionist
+    : (isReceptionist && canAccessReception)
     ? { to: '/tiep-don-xep-hang', label: 'Tiếp đón & Hàng chờ' }
-    : isNurse
+    : (isNurse && canAccessExamination)
     ? { to: '/kham-benh', label: 'Bàn khám & Điều trị' }
-    : canManage
-    ? { to: '/admin/tai-khoan', label: 'Quản trị hệ thống' }
+    : canManageAccounts
+    ? { to: '/admin/tai-khoan', label: 'Quản lý tài khoản' }
+    : canManageRoles
+    ? { to: '/admin/phan-quyen', label: 'Phân quyền chức năng' }
+    : canViewAuditLog
+    ? { to: '/admin/nhat-ky-ho-so', label: 'Nhật ký truy cập hồ sơ' }
+    : canAccessPharmacy
+    ? { to: '/kho-thuoc', label: 'Kho dược & Nhà thuốc' }
+    : canAccessExamination
+    ? { to: '/kham-benh', label: 'Khám bệnh lâm sàng' }
+    : canAccessBilling
+    ? { to: '/thu-ngan', label: 'Thu viện phí' }
+    : canAccessReception
+    ? { to: '/tiep-don-xep-hang', label: 'Tiếp đón & Hàng chờ' }
     : null
 
   // Danh mục đầy đủ các nghiệp vụ được phân quyền
@@ -192,7 +242,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       bg: '#fffbeb',
       border: '#fde68a',
     },
-    canManage && {
+    canManageHR && {
       to: '/quan-ly-nhan-su',
       title: 'Hồ sơ nhân sự & Khoa phòng',
       desc: 'Quản lý danh sách bác sĩ, điều dưỡng và các chuyên khoa',
@@ -200,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       bg: '#eef2ff',
       border: '#c7d2fe',
     },
-    canManage && {
+    canManageAccounts && {
       to: '/admin/tai-khoan',
       title: 'Quản lý tài khoản',
       desc: 'Tạo tài khoản, phân quyền và khóa truy cập người dùng',
@@ -208,7 +258,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       bg: '#eef2ff',
       border: '#c7d2fe',
     },
-    canManage && {
+    canManageRoles && {
       to: '/admin/phan-quyen',
       title: 'Phân quyền chức năng',
       desc: 'Cấu hình ma trận phân quyền chi tiết cho các vai trò',
@@ -216,7 +266,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       bg: '#eef2ff',
       border: '#c7d2fe',
     },
-    canManage && {
+    canViewAuditLog && {
       to: '/admin/nhat-ky-ho-so',
       title: 'Nhật ký truy cập hồ sơ',
       desc: 'Kiểm toán lịch sử xem và thay đổi bệnh án của nhân viên',

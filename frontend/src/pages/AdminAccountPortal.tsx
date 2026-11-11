@@ -18,6 +18,18 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const location = useLocation()
   const navigate = useNavigate()
 
+  const userRoles = (currentUser?.roles || []).map((r) => r.toLowerCase())
+  const userPermissions = (currentUser?.permissions || []).map((p) => p.toUpperCase())
+
+  const hasUserPerm = userRoles.includes('admin') || userRoles.includes('manager') || userPermissions.includes('USER_VIEW') || userPermissions.includes('USER_CREATE')
+  const hasRolePerm = userRoles.includes('admin') || userRoles.includes('manager') || userPermissions.includes('ROLE_MANAGE') || userPermissions.includes('ROLE_ASSIGN')
+  const hasAuditPerm = userRoles.includes('admin') || userRoles.includes('manager') || userPermissions.includes('RECORD_ACCESS_VIEW')
+
+  const isAuthorized = Boolean(
+    currentUser && (hasUserPerm || hasRolePerm || hasAuditPerm)
+  )
+
+
   const getTabFromPath = (path: string): 'accounts' | 'roles' | 'audit' => {
     if (path.includes('/admin/phan-quyen')) return 'roles'
     if (path.includes('/admin/nhat-ky-ho-so')) return 'audit'
@@ -27,8 +39,15 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const [activeTab, setActiveTab] = useState<'accounts' | 'roles' | 'audit'>(() => getTabFromPath(location.pathname))
 
   useEffect(() => {
-    setActiveTab(getTabFromPath(location.pathname))
-  }, [location.pathname])
+    const tabFromPath = getTabFromPath(location.pathname)
+    if (tabFromPath === 'accounts' && !hasUserPerm) {
+      if (hasRolePerm) setActiveTab('roles')
+      else if (hasAuditPerm) setActiveTab('audit')
+      else setActiveTab('accounts')
+    } else {
+      setActiveTab(tabFromPath)
+    }
+  }, [location.pathname, hasUserPerm, hasRolePerm, hasAuditPerm])
 
   const handleTabChange = (tab: 'accounts' | 'roles' | 'audit') => {
     setActiveTab(tab)
@@ -78,16 +97,21 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const [logFilterAction, setLogFilterAction] = useState('ALL')
   const [logSearch, setLogSearch] = useState('')
 
-  const isAuthorized = Boolean(
-    currentUser &&
-      currentUser.roles &&
-      currentUser.roles.some((r) => r.toLowerCase() === 'admin' || r.toLowerCase() === 'manager')
-  )
+  
+
+  const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const token = localStorage.getItem('clinic_auth_token')
+    return {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...(currentUser?.id ? { 'X-Requester-Id': String(currentUser.id) } : {}),
+      ...extraHeaders,
+    }
+  }
 
   // Fetch accounts
   const loadAccounts = async () => {
     try {
-      const res = await fetch('/api/admin/accounts?requesterId=' + (currentUser?.id || ''))
+      const res = await fetch('/api/admin/accounts?requesterId=' + (currentUser?.id || ''), { headers: getAuthHeaders() })
       if (res.ok) {
         const data = await res.json()
         setAccounts(data)
@@ -101,8 +125,8 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const loadRolesAndPermissions = async () => {
     try {
       const [rRes, pRes] = await Promise.all([
-        fetch('/api/admin/roles-permissions/roles?requesterId=' + (currentUser?.id || '')),
-        fetch('/api/admin/roles-permissions/permissions?requesterId=' + (currentUser?.id || '')),
+        fetch('/api/admin/roles-permissions/roles?requesterId=' + (currentUser?.id || ''), { headers: getAuthHeaders() }),
+        fetch('/api/admin/roles-permissions/permissions?requesterId=' + (currentUser?.id || ''), { headers: getAuthHeaders() }),
       ])
       if (rRes.ok && pRes.ok) {
         setRoles(await rRes.json())
@@ -129,7 +153,7 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   // Fetch medical record access logs
   const loadAccessLogs = async () => {
     try {
-      const res = await fetch('/api/admin/access-logs/medical-records?requesterId=' + (currentUser?.id || ''))
+      const res = await fetch('/api/admin/access-logs/medical-records?requesterId=' + (currentUser?.id || ''), { headers: getAuthHeaders() })
       if (res.ok) {
         setAccessLogs(await res.json())
       }
@@ -140,12 +164,32 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
 
   useEffect(() => {
     if (isAuthorized) {
-      loadAccounts()
-      loadRolesAndPermissions()
+      if (hasUserPerm) loadAccounts()
+      if (hasRolePerm) loadRolesAndPermissions()
       loadDepartments()
-      loadAccessLogs()
+      if (hasAuditPerm) loadAccessLogs()
     }
   }, [isAuthorized])
+
+  const [isSyncing, setIsSyncing] = useState(false)
+  const handleSyncFromKeycloak = async () => {
+    setIsSyncing(true)
+    try {
+      const res = await fetch('/api/admin/accounts/sync-keycloak', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAccountActionMessage(data.message || 'Đồng bộ từ Keycloak thành công')
+        await loadAccounts()
+      }
+    } catch {
+      setAccountActionMessage('Lỗi kết nối khi đồng bộ từ Keycloak')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   // Tạo tài khoản mới
   const handleCreateAccount = async (e: React.FormEvent) => {
@@ -382,24 +426,30 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
             </h1>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              className={`btn ${activeTab === 'accounts' ? 'btn-primary' : 'btn-light'}`}
-              onClick={() => handleTabChange('accounts')}
-            >
-              Quản lý tài khoản
-            </button>
-            <button
-              className={`btn ${activeTab === 'roles' ? 'btn-primary' : 'btn-light'}`}
-              onClick={() => handleTabChange('roles')}
-            >
-              Phân quyền & Gán vai trò
-            </button>
-            <button
-              className={`btn ${activeTab === 'audit' ? 'btn-primary' : 'btn-light'}`}
-              onClick={() => handleTabChange('audit')}
-            >
-              Nhật ký truy cập hồ sơ
-            </button>
+            {hasUserPerm && (
+              <button
+                className={`btn ${activeTab === 'accounts' ? 'btn-primary' : 'btn-light'}`}
+                onClick={() => handleTabChange('accounts')}
+              >
+                Quản lý tài khoản
+              </button>
+            )}
+            {hasRolePerm && (
+              <button
+                className={`btn ${activeTab === 'roles' ? 'btn-primary' : 'btn-light'}`}
+                onClick={() => handleTabChange('roles')}
+              >
+                Phân quyền & Gán vai trò
+              </button>
+            )}
+            {hasAuditPerm && (
+              <button
+                className={`btn ${activeTab === 'audit' ? 'btn-primary' : 'btn-light'}`}
+                onClick={() => handleTabChange('audit')}
+              >
+                Nhật ký truy cập hồ sơ
+              </button>
+            )}
           </div>
         </div>
 
@@ -453,6 +503,15 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                     width: '260px',
                   }}
                 />
+                
+                <button
+                  className="btn btn-sm"
+                  style={{ border: '1px solid #087f8c', color: '#087f8c', background: '#f0fdfa', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  onClick={handleSyncFromKeycloak}
+                  disabled={isSyncing}
+                >
+                  {isSyncing ? 'Đang đồng bộ...' : '🔄 Đồng bộ từ Keycloak'}
+                </button>
                 <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
                   + Tạo tài khoản mới
                 </button>

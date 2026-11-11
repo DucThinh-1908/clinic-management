@@ -58,18 +58,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             const data = await res.json()
             if (data.success && data.user) {
               onLoginSuccess(data.user, keycloak.token || '')
-              const userRoles = (data.user.roles || []).map((r: string) => r.toLowerCase())
-              if (userRoles.includes('admin') || userRoles.includes('manager')) {
-                navigate('/admin/tai-khoan')
-              } else if (
-                userRoles.some((r: string) =>
-                  ['receptionist', 'doctor', 'nurse', 'technician', 'pharmacist', 'cashier'].includes(r)
-                )
-              ) {
-                navigate('/quan-ly-benh-nhan')
-              } else {
-                navigate('/')
-              }
+              navigate('/')
               return
             }
           } catch (err) {

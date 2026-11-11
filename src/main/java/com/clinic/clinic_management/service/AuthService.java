@@ -3,22 +3,23 @@ package com.clinic.clinic_management.service;
 import com.clinic.clinic_management.dto.AuthDtos.*;
 import com.clinic.clinic_management.entity.AuditLog;
 import com.clinic.clinic_management.entity.PasswordResetToken;
+import com.clinic.clinic_management.entity.Permission;
 import com.clinic.clinic_management.entity.Role;
 import com.clinic.clinic_management.entity.User;
 import com.clinic.clinic_management.repository.AuditLogRepository;
 import com.clinic.clinic_management.repository.PasswordResetTokenRepository;
+import com.clinic.clinic_management.repository.PermissionRepository;
 import com.clinic.clinic_management.repository.RoleRepository;
 import com.clinic.clinic_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +30,9 @@ public class AuthService {
 
     @Autowired
     private RoleRepository roleRepository;
+
+    @Autowired
+    private PermissionRepository permissionRepository;
 
     @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
@@ -270,27 +274,51 @@ public class AuthService {
     }
 
     public boolean isAdminOrManager(Long userId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities() != null) {
+            boolean hasJwtAuth = auth.getAuthorities().stream()
+                    .map(a -> a.getAuthority())
+                    .anyMatch(a -> "ROLE_ADMIN".equalsIgnoreCase(a) ||
+                                   "ROLE_MANAGER".equalsIgnoreCase(a) ||
+                                   "ROLE_MANAGE".equalsIgnoreCase(a) ||
+                                   "ROLE_ASSIGN".equalsIgnoreCase(a) ||
+                                   "USER_VIEW".equalsIgnoreCase(a) ||
+                                   "USER_CREATE".equalsIgnoreCase(a) ||
+                                   "USER_LOCK".equalsIgnoreCase(a) ||
+                                   "RECORD_ACCESS_VIEW".equalsIgnoreCase(a));
+            if (hasJwtAuth) return true;
+        }
+
         if (userId == null) return false;
         return userRepository.findById(userId)
-                .map(u -> u.getRoles() != null && u.getRoles().stream()
-                        .anyMatch(r -> "admin".equalsIgnoreCase(r.getCode()) || "manager".equalsIgnoreCase(r.getCode())))
+                .map(u -> {
+                    if (u.getRoles() == null) return false;
+                    boolean hasAdminRole = u.getRoles().stream()
+                            .anyMatch(r -> "admin".equalsIgnoreCase(r.getCode()) || "manager".equalsIgnoreCase(r.getCode()));
+                    if (hasAdminRole) return true;
+                    return u.getRoles().stream()
+                            .filter(r -> r.getPermissions() != null)
+                            .flatMap(r -> r.getPermissions().stream())
+                            .anyMatch(p -> "ROLE_MANAGE".equalsIgnoreCase(p.getCode()) ||
+                                           "ROLE_ASSIGN".equalsIgnoreCase(p.getCode()) ||
+                                           "USER_VIEW".equalsIgnoreCase(p.getCode()) ||
+                                           "USER_CREATE".equalsIgnoreCase(p.getCode()) ||
+                                           "USER_LOCK".equalsIgnoreCase(p.getCode()) ||
+                                           "RECORD_ACCESS_VIEW".equalsIgnoreCase(p.getCode()));
+                })
                 .orElse(false);
     }
 
     public void validateAdminOrManager(Long userId) {
         if (userId == null) {
-            throw new SecurityException("Yêu cầu quyền quản trị: Bạn cần đăng nhập tài khoản Quản trị viên hoặc Quản lý phòng khám.");
+            throw new SecurityException("Yêu cầu quyền quản trị: Bạn cần đăng nhập tài khoản có thẩm quyền.");
         }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new SecurityException("Không tìm thấy thông tin tài khoản người thực hiện."));
-        boolean authorized = user.getRoles() != null && user.getRoles().stream()
-                .anyMatch(r -> "admin".equalsIgnoreCase(r.getCode()) || "manager".equalsIgnoreCase(r.getCode()));
-        if (!authorized) {
-            throw new SecurityException("Truy cập bị từ chối: Chỉ quản trị viên (Admin) và Quản lý phòng khám (Manager) mới có quyền quản lý tài khoản, phân quyền gán vai trò và xem nhật ký truy cập hồ sơ.");
+        if (!isAdminOrManager(userId)) {
+            throw new SecurityException("Truy cập bị từ chối: Tài khoản của bạn không có quyền quản lý tài khoản hoặc phân quyền.");
         }
     }
 
-        @Transactional
+    @Transactional
     public LoginResponse syncKeycloakUser(String username, String email, String fullName, Set<String> keycloakRoles, Set<String> keycloakPermissions, String ipAddress) {
         if (username == null || username.trim().isEmpty()) {
             return new LoginResponse(false, "Username từ Keycloak không hợp lệ.", null, null);
@@ -317,15 +345,22 @@ public class AuthService {
         user.setUpdatedAt(LocalDateTime.now());
         user.setLastLoginAt(LocalDateTime.now());
 
-        // 3. Đồng bộ vai trò từ Keycloak vào bảng roles trong MySQL
-        if (keycloakRoles != null && !keycloakRoles.isEmpty()) {
+        // 3. Đồng bộ vai trò và quyền hạn từ Keycloak vào MySQL (Ghi đè chính xác, không cộng dồn quyền cũ)
+        if (keycloakRoles != null) {
             Set<Role> roles = new HashSet<>();
             for (String roleCode : keycloakRoles) {
                 roleRepository.findByCode(roleCode.toLowerCase()).ifPresent(roles::add);
             }
-            if (!roles.isEmpty()) {
-                user.setRoles(roles);
+            if (keycloakPermissions != null && roles.size() == 1) {
+                Role singleRole = roles.iterator().next();
+                Set<Permission> exactPerms = new HashSet<>();
+                for (String permCode : keycloakPermissions) {
+                    permissionRepository.findByCode(permCode.trim().toUpperCase()).ifPresent(exactPerms::add);
+                }
+                singleRole.setPermissions(exactPerms);
+                roleRepository.save(singleRole);
             }
+            user.setRoles(roles);
         }
 
         User savedUser = userRepository.save(user);
@@ -336,13 +371,10 @@ public class AuthService {
         auditLogRepository.save(log);
 
         UserSummary summary = toUserSummary(savedUser);
-        if (keycloakPermissions != null && !keycloakPermissions.isEmpty()) {
-            Set<String> combined = new HashSet<>(summary.getPermissions() != null ? summary.getPermissions() : Collections.emptySet());
-            combined.addAll(keycloakPermissions);
-            summary.setPermissions(combined);
+        if (keycloakPermissions != null) {
+            summary.setPermissions(new HashSet<>(keycloakPermissions));
         }
         return new LoginResponse(true, "Đồng bộ Keycloak thành công", null, summary);
     }
 
 }
-

@@ -21,8 +21,11 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
         Collection<GrantedAuthority> authorities = Stream.concat(
-                defaultConverter.convert(jwt).stream(),
-                extractRealmRoles(jwt).stream()
+                Stream.concat(
+                        defaultConverter.convert(jwt).stream(),
+                        extractRealmRoles(jwt).stream()
+                ),
+                extractPermissions(jwt).stream()
         ).collect(Collectors.toSet());
 
         return new JwtAuthenticationToken(jwt, authorities, getPrincipalClaimName(jwt));
@@ -44,5 +47,39 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
         return roles.stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
                 .collect(Collectors.toList());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Collection<GrantedAuthority> extractPermissions(Jwt jwt) {
+        Set<GrantedAuthority> perms = new HashSet<>();
+
+        // 1. Check claim 'permissions' directly (from Protocol Mapper)
+        if (jwt.hasClaim("permissions")) {
+            Object permsClaim = jwt.getClaim("permissions");
+            if (permsClaim instanceof List) {
+                for (Object p : (List<?>) permsClaim) {
+                    if (p != null) {
+                        String permStr = p.toString();
+                        perms.add(new SimpleGrantedAuthority(permStr));
+                        perms.add(new SimpleGrantedAuthority("PERM_" + permStr));
+                    }
+                }
+            }
+        }
+
+        // 2. Check client roles in 'resource_access.clinic-frontend.roles'
+        Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+        if (resourceAccess != null && resourceAccess.containsKey("clinic-frontend")) {
+            Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get("clinic-frontend");
+            if (clientAccess != null && clientAccess.containsKey("roles")) {
+                List<String> clientRoles = (List<String>) clientAccess.get("roles");
+                for (String cr : clientRoles) {
+                    perms.add(new SimpleGrantedAuthority(cr));
+                    perms.add(new SimpleGrantedAuthority("PERM_" + cr));
+                }
+            }
+        }
+
+        return perms;
     }
 }

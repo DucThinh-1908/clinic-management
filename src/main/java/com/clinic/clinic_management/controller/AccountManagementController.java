@@ -95,4 +95,9 @@ public class AccountManagementController {
             return ResponseEntity.badRequest().body(err);
         }
     }
+
+    @PostMapping("/sync-keycloak")
+    public ResponseEntity<?> syncAllFromKeycloak() {
+        return ResponseEntity.ok(accountManagementService.syncUsersFromKeycloak());
+    }
 }

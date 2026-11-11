@@ -24,16 +24,16 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Cho phép công khai trang chủ, tệp tĩnh giao diện và các API đăng ký/đăng nhập truyền thống
+                // Cho phép công khai trang chủ, tệp tĩnh giao diện và các API xác thực
                 .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/*.svg").permitAll()
                 .requestMatchers("/api/auth/**", "/dang-nhap", "/dang-ky", "/quen-mat-khau", "/dich-vu", "/gioi-thieu", "/lien-he").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/departments", "/api/services/**").permitAll()
                 
-                // Các API quản trị yêu cầu quyền ADMIN hoặc MANAGER
-                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "MANAGER")
+                // Các API quản trị để Controller & Service tự kiểm tra thẩm quyền theo requesterId và JWT permissions
+                .requestMatchers("/api/admin/**").permitAll()
                 
-                // Các API khác yêu cầu phải đăng nhập
-                .anyRequest().permitAll() // Hoặc .authenticated() khi đã hoàn tất di trú 100%
+                // Các API khác cho phép đi qua
+                .anyRequest().permitAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter))

@@ -1,5 +1,6 @@
 package com.clinic.clinic_management;
 
+import com.clinic.clinic_management.config.VaultEnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -7,7 +8,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class ClinicManagementApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ClinicManagementApplication.class, args);
+		SpringApplication app = new SpringApplication(ClinicManagementApplication.class);
+		app.addInitializers(new VaultEnvironmentPostProcessor());
+		app.run(args);
 	}
 
 }

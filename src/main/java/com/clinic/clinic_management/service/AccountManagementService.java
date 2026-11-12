@@ -42,6 +42,12 @@ public class AccountManagementService {
     @Autowired
     private RolePermissionService rolePermissionService;
 
+    @org.springframework.beans.factory.annotation.Value("${keycloak.admin.username:admin}")
+    private String keycloakAdminUser;
+
+    @org.springframework.beans.factory.annotation.Value("${keycloak.admin.password:admin_password}")
+    private String keycloakAdminPassword;
+
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public List<UserSummary> getAllAccounts() {
@@ -157,7 +163,7 @@ public class AccountManagementService {
             java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
 
             // 1. Lấy token admin từ Keycloak
-            String form = "grant_type=password&client_id=admin-cli&username=admin&password=admin_password";
+            String form = "grant_type=password&client_id=admin-cli&username=" + keycloakAdminUser + "&password=" + keycloakAdminPassword;
             java.net.http.HttpRequest tokenReq = java.net.http.HttpRequest.newBuilder()
                     .uri(java.net.URI.create("http://localhost:8081/realms/master/protocol/openid-connect/token"))
                     .header("Content-Type", "application/x-www-form-urlencoded")

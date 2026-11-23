@@ -360,7 +360,12 @@ public class AuthService {
                 singleRole.setPermissions(exactPerms);
                 roleRepository.save(singleRole);
             }
-            user.setRoles(roles);
+            if (user.getRoles() == null) {
+                user.setRoles(new HashSet<>(roles));
+            } else {
+                user.getRoles().clear();
+                user.getRoles().addAll(roles);
+            }
         }
 
         User savedUser = userRepository.save(user);

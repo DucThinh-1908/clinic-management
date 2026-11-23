@@ -1,0 +1,166 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  # 1. Phân hệ Xác thực & Đồng bộ SSO (Authentication Service)
+  - name: auth-service
+    url: http://host.docker.internal:8080/api/auth
+    tags: ["security", "auth"]
+    routes:
+      - name: auth-api-route
+        paths: ["/api/auth"]
+        strip_path: true
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+
+  # 2. Phân hệ Quản trị Tài khoản & Phân quyền RBAC (Admin & RBAC Service)
+  - name: admin-rbac-service
+    url: http://host.docker.internal:8080/api/admin
+    tags: ["security", "admin", "rbac"]
+    routes:
+      - name: admin-accounts-route
+        paths: ["/api/admin/accounts"]
+        strip_path: false
+      - name: admin-roles-permissions-route
+        paths: ["/api/admin/roles-permissions"]
+        strip_path: false
+      - name: admin-audit-logs-route
+        paths: ["/api/admin/record-access-logs"]
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+
+  # 3. Phân hệ Quản lý Hồ sơ Bệnh nhân (Patient EMR Service)
+  - name: patient-emr-service
+    url: http://host.docker.internal:8080/api/patients
+    tags: ["clinical", "emr"]
+    routes:
+      - name: patient-management-route
+        paths: ["/api/patients", "/api/medical-records"]
+        strip_path: false
+
+  # 4. Phân hệ Đặt lịch hẹn Khám bệnh (Appointment Scheduling Service)
+  - name: appointment-scheduling-service
+    url: http://host.docker.internal:8080/api/appointments
+    tags: ["clinical", "booking"]
+    routes:
+      - name: appointment-booking-route
+        paths: ["/api/appointments"]
+        strip_path: true
+    plugins:
+      # Chống spam đặt lịch ảo: tối đa 20 lần/phút/IP
+      - name: rate-limiting
+        config:
+          minute: 20
+          policy: local
+
+  # 5. Phân hệ Tiếp đón & Hàng chờ Khám (Reception & Queue Service)
+  - name: reception-queue-service
+    url: http://host.docker.internal:8080/api/queue
+    tags: ["clinical", "queue"]
+    routes:
+      - name: reception-queue-route
+        paths: ["/api/queue"]
+        strip_path: true
+
+  # 6. Phân hệ Khám bệnh Lâm sàng & Xét nghiệm (Medical Examination Service)
+  - name: medical-examination-service
+    url: http://host.docker.internal:8080/api/examinations
+    tags: ["clinical", "doctor"]
+    routes:
+      - name: clinical-examination-route
+        paths: ["/api/examinations"]
+        strip_path: true
+
+  # 7. Phân hệ Nhà thuốc & Kho dược (Pharmacy & Inventory Service)
+  - name: pharmacy-inventory-service
+    url: http://host.docker.internal:8080/api/pharmacy
+    tags: ["pharmacy", "inventory"]
+    routes:
+      - name: pharmacy-dispensation-route
+        paths: ["/api/pharmacy"]
+        strip_path: true
+
+  # 8. Phân hệ Thu ngân & Thanh toán Viện phí (Billing & Payment Service)
+  - name: billing-payment-service
+    url: http://host.docker.internal:8080/api/billing
+    tags: ["finance", "billing"]
+    routes:
+      - name: billing-invoice-route
+        paths: ["/api/billing"]
+        strip_path: true
+
+  # 9. Phân hệ Nhân sự, Lịch trực & Chấm công (HR & Staff Scheduling Service)
+  - name: staff-scheduling-service
+    url: http://host.docker.internal:8080/api/staff-scheduling
+    tags: ["hr", "scheduling"]
+    routes:
+      - name: staff-schedule-route
+        paths: ["/api/staff-scheduling", "/api/departments"]
+        strip_path: false
+
+  # 10. Phân hệ Báo cáo & Thống kê Y tế (Reports & Analytics Service)
+  - name: reports-analytics-service
+    url: http://host.docker.internal:8080/api/reports
+    tags: ["analytics", "reports"]
+    routes:
+      - name: analytics-report-route
+        paths: ["/api/reports"]
+        strip_path: true
+
+  # 11. Giao diện Cổng thông tin CarePlus Clinic (Frontend Web Portal)
+  - name: careplus-web-portal
+    url: http://host.docker.internal:8080
+    tags: ["frontend", "ui"]
+    routes:
+      - name: careplus-spa-route
+        paths: ["/"]
+        strip_path: false
+
+  # 12. Cổng Xác thực Tập trung Keycloak SSO (Identity Provider)
+  - name: keycloak-iam-service
+    url: http://clinic-keycloak:8080
+    tags: ["security", "iam", "keycloak"]
+    routes:
+      - name: keycloak-sso-route
+        paths: ["/realms", "/resources"]
+        strip_path: false
+
+  # 13. Hệ thống Quản lý Bí mật HashiCorp Vault (Secrets Engine)
+  - name: hashicorp-vault-service
+    url: http://clinic-vault:8200
+    tags: ["security", "vault", "secrets"]
+    routes:
+      - name: vault-api-route
+        paths: ["/v1/secret"]
+        strip_path: false
+
+plugins:
+  # 1. Bảo mật CORS toàn cục cho toàn bộ hệ thống
+  - name: cors
+    config:
+      origins: ["*"]
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+      headers: ["Accept", "Authorization", "Content-Type", "X-Requester-Id"]
+      exposed_headers: ["X-Auth-Token", "X-Kong-Request-Id"]
+      credentials: true
+      max_age: 3600
+
+  # 2. Gắn mã định danh truy vết (Correlation ID) cho mọi Request y tế
+  - name: correlation-id
+    config:
+      header_name: X-CarePlus-Trace-Id
+      generator: uuid#counter
+      echo_downstream: true
+
+  # 3. Giới hạn dung lượng gói tin chống tấn công tràn bộ nhớ (tối đa 10MB)
+  - name: request-size-limiting
+    config:
+      allowed_payload_size: 10
+      size_unit: megabytes

@@ -934,7 +934,14 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                   }}
                 >
                   <option value="ALL">Tất cả hành động</option>
-                  <option value="VIEW_RECORD">Xem hồ sơ (VIEW)</option>
+                  <option value="VIEW_RECORD">Xem lịch sử khám (VIEW)</option>
+                  <option value="CREATE_PATIENT">Đăng ký mới (CREATE)</option>
+                  <option value="UPDATE_PATIENT_INFO">Sửa thông tin hành chính</option>
+                  <option value="UPDATE_MEDICAL_HISTORY">Tiền sử & Dị ứng</option>
+                  <option value="UPDATE_HEALTH_INSURANCE">Thẻ BHYT</option>
+                  <option value="MERGE_PATIENTS">Gộp hồ sơ trùng</option>
+                  <option value="DEACTIVATE_PATIENT">Khóa hồ sơ</option>
+                  <option value="ACTIVATE_PATIENT">Mở khóa hồ sơ</option>
                   <option value="EDIT_RECORD">Chỉnh sửa hồ sơ (EDIT)</option>
                   <option value="PRINT_RECORD">In hồ sơ (PRINT)</option>
                 </select>
@@ -987,15 +994,27 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                             background:
                               log.action === 'VIEW_RECORD'
                                 ? '#e1effe'
-                                : log.action === 'EDIT_RECORD'
-                                ? '#fef08a'
-                                : '#def7ec',
+                                : log.action.includes('UPDATE')
+                                ? '#fef3c7'
+                                : log.action === 'CREATE_PATIENT'
+                                ? '#def7ec'
+                                : log.action === 'DEACTIVATE_PATIENT'
+                                ? '#fee2e2'
+                                : log.action === 'MERGE_PATIENTS'
+                                ? '#f3e8ff'
+                                : '#e0f2fe',
                             color:
                               log.action === 'VIEW_RECORD'
                                 ? '#1e429f'
-                                : log.action === 'EDIT_RECORD'
-                                ? '#713f12'
-                                : '#03543f',
+                                : log.action.includes('UPDATE')
+                                ? '#92400e'
+                                : log.action === 'CREATE_PATIENT'
+                                ? '#03543f'
+                                : log.action === 'DEACTIVATE_PATIENT'
+                                ? '#991b1b'
+                                : log.action === 'MERGE_PATIENTS'
+                                ? '#6b21a8'
+                                : '#075985',
                             padding: '3px 8px',
                             borderRadius: '4px',
                             fontSize: '11.5px',

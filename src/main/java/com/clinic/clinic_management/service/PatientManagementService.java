@@ -302,10 +302,27 @@ public class PatientManagementService {
      * Tác nhân: Bác sĩ, Lễ tân, Điều dưỡng, Quản lý, Admin, Bệnh nhân (xem hồ sơ của chính mình).
      */
     public List<MedicalRecordSummaryDto> getPatientMedicalRecords(Long patientId, Long requesterId) {
+        return getPatientMedicalRecords(patientId, requesterId, "127.0.0.1");
+    }
+
+    public List<MedicalRecordSummaryDto> getPatientMedicalRecords(Long patientId, Long requesterId, String ipAddress) {
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hồ sơ bệnh nhân có ID: " + patientId));
 
         validateViewAccess(requesterId, patient);
+
+        // Lưu vết kiểm toán an ninh: Xem lịch sử khám bệnh (VIEW_RECORD)
+        Long actorId = requesterId != null ? requesterId : (patient.getUserId() != null ? patient.getUserId() : 1L);
+        String patientCode = patient.getPatientCode() != null ? patient.getPatientCode() : "BN-" + patient.getId();
+        auditLogRepository.save(new AuditLog(
+                actorId,
+                "VIEW_RECORD",
+                "medical_records",
+                patientCode,
+                String.format("{\"patientName\":\"%s\",\"patientCode\":\"%s\",\"reason\":\"Tra cứu lịch sử khám bệnh\"}",
+                        patient.getFullName() != null ? patient.getFullName() : "Bệnh nhân", patientCode),
+                ipAddress != null ? ipAddress : "127.0.0.1"
+        ));
 
         List<MedicalRecord> records = medicalRecordRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
 

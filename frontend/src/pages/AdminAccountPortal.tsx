@@ -96,6 +96,20 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
   const [accessLogs, setAccessLogs] = useState<MedicalRecordAccessLog[]>([])
   const [logFilterAction, setLogFilterAction] = useState('ALL')
   const [logSearch, setLogSearch] = useState('')
+  const [logCurrentPage, setLogCurrentPage] = useState(1)
+  const [logPageSize, setLogPageSize] = useState(10)
+
+  // Phân trang danh sách tài khoản
+  const [accountCurrentPage, setAccountCurrentPage] = useState(1)
+  const [accountPageSize, setAccountPageSize] = useState(10)
+
+  useEffect(() => {
+    setLogCurrentPage(1)
+  }, [logFilterAction, logSearch])
+
+  useEffect(() => {
+    setAccountCurrentPage(1)
+  }, [searchKeyword])
 
   
 
@@ -181,11 +195,11 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
       })
       if (res.ok) {
         const data = await res.json()
-        setAccountActionMessage(data.message || 'Đồng bộ từ Keycloak thành công')
+        setAccountActionMessage(data.message || 'Đồng bộ tài khoản thành công')
         await loadAccounts()
       }
     } catch {
-      setAccountActionMessage('Lỗi kết nối khi đồng bộ từ Keycloak')
+      setAccountActionMessage('Lỗi kết nối khi đồng bộ tài khoản')
     } finally {
       setIsSyncing(false)
     }
@@ -364,6 +378,10 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
       (a.phone && a.phone.includes(searchKeyword)) ||
       a.roles.some((r) => r.toLowerCase().includes(searchKeyword.toLowerCase()))
   )
+  const totalAccountPages = Math.max(1, Math.ceil(filteredAccounts.length / accountPageSize))
+  const accountStartIndex = (accountCurrentPage - 1) * accountPageSize
+  const accountEndIndex = Math.min(accountStartIndex + accountPageSize, filteredAccounts.length)
+  const paginatedAccounts = filteredAccounts.slice(accountStartIndex, accountEndIndex)
 
   // Lọc nhật ký truy cập hồ sơ
   const filteredLogs = accessLogs.filter((log) => {
@@ -375,6 +393,10 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
       log.reason.toLowerCase().includes(logSearch.toLowerCase())
     return matchesAction && matchesSearch
   })
+  const totalLogPages = Math.max(1, Math.ceil(filteredLogs.length / logPageSize))
+  const logStartIndex = (logCurrentPage - 1) * logPageSize
+  const logEndIndex = Math.min(logStartIndex + logPageSize, filteredLogs.length)
+  const paginatedLogs = filteredLogs.slice(logStartIndex, logEndIndex)
 
   if (!currentUser) {
     return (
@@ -510,7 +532,7 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                   onClick={handleSyncFromKeycloak}
                   disabled={isSyncing}
                 >
-                  {isSyncing ? 'Đang đồng bộ...' : '🔄 Đồng bộ từ Keycloak'}
+                  {isSyncing ? 'Đang đồng bộ...' : '🔄 Đồng bộ tài khoản'}
                 </button>
                 <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
                   + Tạo tài khoản mới
@@ -532,84 +554,200 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAccounts.map((acc) => (
-                    <tr key={acc.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>#{acc.id}</td>
-                      <td style={{ padding: '12px 16px', fontWeight: 650 }}>{acc.username}</td>
-                      <td style={{ padding: '12px 16px', color: '#4b5563' }}>{acc.email || '-'}</td>
-                      <td style={{ padding: '12px 16px', color: '#4b5563' }}>{acc.phone || '-'}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          {acc.roles.map((r) => (
-                            <span
-                              key={r}
-                              style={{
-                                background: 'var(--primary-light)',
-                                color: 'var(--primary-dark)',
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {r}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <span
-                          style={{
-                            background: acc.isActive ? '#def7ec' : '#fde8e8',
-                            color: acc.isActive ? '#03543f' : '#9b1c1c',
-                            padding: '4px 10px',
-                            borderRadius: '12px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                          }}
-                        >
-                          {acc.isActive ? 'Hoạt động' : 'Đã khóa'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                        {(() => {
-                          const isSelf = currentUser?.id === acc.id
-                          const isCurrentManagerOnly = Boolean(
-                            currentUser?.roles?.some((r) => r.toLowerCase() === 'manager') &&
-                            !currentUser?.roles?.some((r) => r.toLowerCase() === 'admin')
-                          )
-                          const isTargetAdmin = acc.roles?.some((r) => r.toLowerCase() === 'admin')
-                          const cannotLock = acc.isActive && (isSelf || (isCurrentManagerOnly && isTargetAdmin))
-                          const disabledTitle = isSelf
-                            ? 'Không thể tự khóa tài khoản của chính mình'
-                            : isCurrentManagerOnly && isTargetAdmin
-                            ? 'Quản lý không có quyền khóa tài khoản của Quản trị viên'
-                            : ''
-
-                          return (
-                            <button
-                              className={`btn btn-sm ${acc.isActive ? 'btn-outline' : 'btn-primary'}`}
-                              style={{
-                                padding: '5px 12px',
-                                borderColor: cannotLock ? 'var(--border)' : acc.isActive ? '#e02424' : 'var(--primary)',
-                                color: cannotLock ? 'var(--muted)' : acc.isActive ? '#e02424' : '#ffffff',
-                                opacity: cannotLock ? 0.6 : 1,
-                                cursor: cannotLock ? 'not-allowed' : 'pointer',
-                              }}
-                              disabled={cannotLock}
-                              title={disabledTitle}
-                              onClick={() => handleToggleStatus(acc)}
-                            >
-                              {acc.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                            </button>
-                          )
-                        })()}
+                  {paginatedAccounts.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
+                        Không tìm thấy tài khoản nào phù hợp với từ khóa tìm kiếm.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    paginatedAccounts.map((acc) => (
+                      <tr key={acc.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>#{acc.id}</td>
+                        <td style={{ padding: '12px 16px', fontWeight: 650 }}>{acc.username}</td>
+                        <td style={{ padding: '12px 16px', color: '#4b5563' }}>{acc.email || '-'}</td>
+                        <td style={{ padding: '12px 16px', color: '#4b5563' }}>{acc.phone || '-'}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {acc.roles.map((r) => (
+                              <span
+                                key={r}
+                                style={{
+                                  background: 'var(--primary-light)',
+                                  color: 'var(--primary-dark)',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {r}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span
+                            style={{
+                              background: acc.isActive ? '#def7ec' : '#fde8e8',
+                              color: acc.isActive ? '#03543f' : '#9b1c1c',
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {acc.isActive ? 'Hoạt động' : 'Đã khóa'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          {(() => {
+                            const isSelf = currentUser?.id === acc.id
+                            const isCurrentManagerOnly = Boolean(
+                              currentUser?.roles?.some((r) => r.toLowerCase() === 'manager') &&
+                              !currentUser?.roles?.some((r) => r.toLowerCase() === 'admin')
+                            )
+                            const isTargetAdmin = acc.roles?.some((r) => r.toLowerCase() === 'admin')
+                            const cannotLock = acc.isActive && (isSelf || (isCurrentManagerOnly && isTargetAdmin))
+                            const disabledTitle = isSelf
+                              ? 'Không thể tự khóa tài khoản của chính mình'
+                              : isCurrentManagerOnly && isTargetAdmin
+                              ? 'Quản lý không có quyền khóa tài khoản của Quản trị viên'
+                              : ''
+
+                            return (
+                              <button
+                                className={`btn btn-sm ${acc.isActive ? 'btn-outline' : 'btn-primary'}`}
+                                style={{
+                                  padding: '5px 12px',
+                                  borderColor: cannotLock ? 'var(--border)' : acc.isActive ? '#e02424' : 'var(--primary)',
+                                  color: cannotLock ? 'var(--muted)' : acc.isActive ? '#e02424' : '#ffffff',
+                                  opacity: cannotLock ? 0.6 : 1,
+                                  cursor: cannotLock ? 'not-allowed' : 'pointer',
+                                }}
+                                disabled={cannotLock}
+                                title={disabledTitle}
+                                onClick={() => handleToggleStatus(acc)}
+                              >
+                                {acc.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                              </button>
+                            )
+                          })()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Phân trang danh sách tài khoản */}
+            {filteredAccounts.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '16px 4px 4px',
+                  marginTop: '12px',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  fontSize: '13.5px',
+                  color: '#4b5563',
+                  borderTop: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Hiển thị</span>
+                  <select
+                    value={accountPageSize}
+                    onChange={(e) => {
+                      setAccountPageSize(Number(e.target.value))
+                      setAccountCurrentPage(1)
+                    }}
+                    style={{
+                      padding: '5px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border)',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value={10}>10 dòng/trang</option>
+                    <option value={20}>20 dòng/trang</option>
+                    <option value={50}>50 dòng/trang</option>
+                  </select>
+                  <span>
+                    (từ <strong>{accountStartIndex + 1}</strong> - <strong>{accountEndIndex}</strong> trong tổng số <strong>{filteredAccounts.length}</strong> tài khoản)
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    className="btn btn-sm btn-light"
+                    disabled={accountCurrentPage === 1}
+                    onClick={() => setAccountCurrentPage(1)}
+                    style={{ padding: '5px 10px', fontSize: '13px', opacity: accountCurrentPage === 1 ? 0.5 : 1 }}
+                    title="Trang đầu"
+                  >
+                    «
+                  </button>
+                  <button
+                    className="btn btn-sm btn-light"
+                    disabled={accountCurrentPage === 1}
+                    onClick={() => setAccountCurrentPage((p) => Math.max(1, p - 1))}
+                    style={{ padding: '5px 10px', fontSize: '13px', opacity: accountCurrentPage === 1 ? 0.5 : 1 }}
+                    title="Trang trước"
+                  >
+                    ‹ Trước
+                  </button>
+
+                  {Array.from({ length: totalAccountPages }, (_, i) => i + 1)
+                    .filter((page) => page === 1 || page === totalAccountPages || Math.abs(page - accountCurrentPage) <= 1)
+                    .map((page, idx, arr) => {
+                      const prev = arr[idx - 1]
+                      const showEllipsis = prev && page - prev > 1
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsis && <span style={{ padding: '0 4px', color: 'var(--muted)' }}>...</span>}
+                          <button
+                            className={`btn btn-sm ${accountCurrentPage === page ? 'btn-primary' : 'btn-light'}`}
+                            onClick={() => setAccountCurrentPage(page)}
+                            style={{
+                              padding: '5px 11px',
+                              fontSize: '13px',
+                              fontWeight: accountCurrentPage === page ? 700 : 500,
+                              minWidth: '32px',
+                            }}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      )
+                    })}
+
+                  <button
+                    className="btn btn-sm btn-light"
+                    disabled={accountCurrentPage === totalAccountPages}
+                    onClick={() => setAccountCurrentPage((p) => Math.min(totalAccountPages, p + 1))}
+                    style={{ padding: '5px 10px', fontSize: '13px', opacity: accountCurrentPage === totalAccountPages ? 0.5 : 1 }}
+                    title="Trang sau"
+                  >
+                    Sau ›
+                  </button>
+                  <button
+                    className="btn btn-sm btn-light"
+                    disabled={accountCurrentPage === totalAccountPages}
+                    onClick={() => setAccountCurrentPage(totalAccountPages)}
+                    style={{ padding: '5px 10px', fontSize: '13px', opacity: accountCurrentPage === totalAccountPages ? 0.5 : 1 }}
+                    title="Trang cuối"
+                  >
+                    »
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -631,10 +769,10 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
             }}>
               <div>
                 <h3 style={{ margin: '0 0 6px', color: '#087f8c', fontSize: '17px', fontWeight: 700 }}>
-                  Quản trị Phân quyền Tập trung trên Keycloak Console
+                  Cấu hình phân quyền chi tiết
                 </h3>
                 <p style={{ margin: 0, color: '#334155', fontSize: '13.5px', lineHeight: 1.5 }}>
-                  Hệ thống đã kích hoạt Composite Roles và Phân quyền trực quan trên Keycloak. Bạn có thể mở giao diện Keycloak để tích chọn quyền cho từng vai trò.
+                  Mở trang cấu hình phân quyền tập trung để tích chọn quyền hạn cho từng vai trò trong hệ thống.
                 </p>
               </div>
               <a
@@ -655,7 +793,7 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                   whiteSpace: 'nowrap'
                 }}
               >
-                Mở Keycloak Phân quyền ↗
+                Mở trang cấu hình ↗
               </a>
             </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
@@ -977,66 +1115,182 @@ export const AdminAccountPortal: React.FC<AdminAccountPortalProps> = ({ currentU
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLogs.map((log) => (
-                    <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '12px 14px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                        {new Date(log.createdAt).toLocaleString('vi-VN')}
-                      </td>
-                      <td style={{ padding: '12px 14px', fontWeight: 650 }}>{log.username}</td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <span style={{ background: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '12px' }}>
-                          {log.roleName}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <span
-                          style={{
-                            background:
-                              log.action === 'VIEW_RECORD'
-                                ? '#e1effe'
-                                : log.action.includes('UPDATE')
-                                ? '#fef3c7'
-                                : log.action === 'CREATE_PATIENT'
-                                ? '#def7ec'
-                                : log.action === 'DEACTIVATE_PATIENT'
-                                ? '#fee2e2'
-                                : log.action === 'MERGE_PATIENTS'
-                                ? '#f3e8ff'
-                                : '#e0f2fe',
-                            color:
-                              log.action === 'VIEW_RECORD'
-                                ? '#1e429f'
-                                : log.action.includes('UPDATE')
-                                ? '#92400e'
-                                : log.action === 'CREATE_PATIENT'
-                                ? '#03543f'
-                                : log.action === 'DEACTIVATE_PATIENT'
-                                ? '#991b1b'
-                                : log.action === 'MERGE_PATIENTS'
-                                ? '#6b21a8'
-                                : '#075985',
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                          }}
-                        >
-                          {log.action}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--primary)' }}>
-                        {log.recordCode}
-                      </td>
-                      <td style={{ padding: '12px 14px' }}>{log.patientName}</td>
-                      <td style={{ padding: '12px 14px', color: 'var(--ink)' }}>{log.reason}</td>
-                      <td style={{ padding: '12px 14px', color: 'var(--muted)', fontSize: '12px' }}>
-                        {log.ipAddress}
+                  {paginatedLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '36px', color: 'var(--muted)' }}>
+                        Không tìm thấy nhật ký truy cập nào phù hợp với bộ lọc.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    paginatedLogs.map((log) => (
+                      <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '12px 14px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                          {new Date(log.createdAt).toLocaleString('vi-VN')}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 650 }}>{log.username}</td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span style={{ background: '#edf2f7', padding: '3px 8px', borderRadius: '4px', fontSize: '12px' }}>
+                            {log.roleName}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span
+                            style={{
+                              background:
+                                log.action === 'VIEW_RECORD'
+                                  ? '#e1effe'
+                                  : log.action.includes('UPDATE')
+                                  ? '#fef3c7'
+                                  : log.action === 'CREATE_PATIENT'
+                                  ? '#def7ec'
+                                  : log.action === 'DEACTIVATE_PATIENT'
+                                  ? '#fee2e2'
+                                  : log.action === 'MERGE_PATIENTS'
+                                  ? '#f3e8ff'
+                                  : '#e0f2fe',
+                              color:
+                                log.action === 'VIEW_RECORD'
+                                  ? '#1e429f'
+                                  : log.action.includes('UPDATE')
+                                  ? '#92400e'
+                                  : log.action === 'CREATE_PATIENT'
+                                  ? '#03543f'
+                                  : log.action === 'DEACTIVATE_PATIENT'
+                                  ? '#991b1b'
+                                  : log.action === 'MERGE_PATIENTS'
+                                  ? '#6b21a8'
+                                  : '#075985',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {log.action}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--primary)' }}>
+                          {log.recordCode}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>{log.patientName}</td>
+                        <td style={{ padding: '12px 14px', color: 'var(--ink)' }}>{log.reason}</td>
+                        <td style={{ padding: '12px 14px', color: 'var(--muted)', fontSize: '12px' }}>
+                          {log.ipAddress}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Phân trang nhật ký truy cập */}
+            {filteredLogs.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '16px 4px 4px',
+                  marginTop: '12px',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  fontSize: '13.5px',
+                  color: '#4b5563',
+                  borderTop: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Hiển thị</span>
+                  <select
+                    value={logPageSize}
+                    onChange={(e) => {
+                      setLogPageSize(Number(e.target.value))
+                      setLogCurrentPage(1)
+                    }}
+                    style={{
+                      padding: '5px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border)',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value={10}>10 dòng/trang</option>
+                    <option value={20}>20 dòng/trang</option>
+                    <option value={50}>50 dòng/trang</option>
+                  </select>
+                  <span>
+                    (từ <strong>{logStartIndex + 1}</strong> - <strong>{logEndIndex}</strong> trong tổng số <strong>{filteredLogs.length}</strong> nhật ký)
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    className="btn btn-sm btn-light"
+                    disabled={logCurrentPage === 1}
+                    onClick={() => setLogCurrentPage(1)}
+                    style={{ padding: '5px 10px', fontSize: '13px', opacity: logCurrentPage === 1 ? 0.5 : 1 }}
+                    title="Trang đầu"
+                  >
+                    «
+                  </button>
+                  <button
+                    className="btn btn-sm btn-light"
+                    disabled={logCurrentPage === 1}
+                    onClick={() => setLogCurrentPage((p) => Math.max(1, p - 1))}
+                    style={{ padding: '5px 10px', fontSize: '13px', opacity: logCurrentPage === 1 ? 0.5 : 1 }}
+                    title="Trang trước"
+                  >
+                    ‹ Trước
+                  </button>
+
+                  {Array.from({ length: totalLogPages }, (_, i) => i + 1)
+                    .filter((page) => page === 1 || page === totalLogPages || Math.abs(page - logCurrentPage) <= 1)
+                    .map((page, idx, arr) => {
+                      const prev = arr[idx - 1]
+                      const showEllipsis = prev && page - prev > 1
+                      return (
+                        <React.Fragment key={page}>
+                          {showEllipsis && <span style={{ padding: '0 4px', color: 'var(--muted)' }}>...</span>}
+                          <button
+                            className={`btn btn-sm ${logCurrentPage === page ? 'btn-primary' : 'btn-light'}`}
+                            onClick={() => setLogCurrentPage(page)}
+                            style={{
+                              padding: '5px 11px',
+                              fontSize: '13px',
+                              fontWeight: logCurrentPage === page ? 700 : 500,
+                              minWidth: '32px',
+                            }}
+                          >
+                            {page}
+                          </button>
+                        </React.Fragment>
+                      )
+                    })}
+
+                  <button
+                    className="btn btn-sm btn-light"
+                    disabled={logCurrentPage === totalLogPages}
+                    onClick={() => setLogCurrentPage((p) => Math.min(totalLogPages, p + 1))}
+                    style={{ padding: '5px 10px', fontSize: '13px', opacity: logCurrentPage === totalLogPages ? 0.5 : 1 }}
+                    title="Trang sau"
+                  >
+                    Sau ›
+                  </button>
+                  <button
+                    className="btn btn-sm btn-light"
+                    disabled={logCurrentPage === totalLogPages}
+                    onClick={() => setLogCurrentPage(totalLogPages)}
+                    style={{ padding: '5px 10px', fontSize: '13px', opacity: logCurrentPage === totalLogPages ? 0.5 : 1 }}
+                    title="Trang cuối"
+                  >
+                    »
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

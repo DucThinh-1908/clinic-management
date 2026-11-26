@@ -172,7 +172,7 @@ public class AccountManagementService {
             java.net.http.HttpResponse<String> tokenRes = client.send(tokenReq, java.net.http.HttpResponse.BodyHandlers.ofString());
             Matcher tokenMatcher = Pattern.compile("\"access_token\"\\s*:\\s*\"([^\"]+)\"").matcher(tokenRes.body());
             if (!tokenMatcher.find()) {
-                return Map.of("success", false, "message", "Không thể lấy access_token từ Keycloak.");
+                return Map.of("success", false, "message", "Không thể lấy token xác thực quản trị.");
             }
             String token = tokenMatcher.group(1);
 
@@ -259,6 +259,6 @@ public class AccountManagementService {
         } catch (Exception e) {
             System.err.println("Lỗi đồng bộ Keycloak: " + e.getMessage());
         }
-        return Map.of("success", true, "message", "Đã đồng bộ thành công " + syncedCount + " tài khoản và phân quyền từ Keycloak.", "syncedCount", syncedCount);
+        return Map.of("success", true, "message", "Đã đồng bộ thành công " + syncedCount + " tài khoản và phân quyền.", "syncedCount", syncedCount);
     }
 }

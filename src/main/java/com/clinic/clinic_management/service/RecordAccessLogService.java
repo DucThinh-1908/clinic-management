@@ -3,9 +3,11 @@ package com.clinic.clinic_management.service;
 import com.clinic.clinic_management.dto.AccountDtos.MedicalRecordAccessLogResponse;
 import com.clinic.clinic_management.dto.AccountDtos.RecordAccessLogRequest;
 import com.clinic.clinic_management.entity.AuditLog;
+import com.clinic.clinic_management.entity.Patient;
 import com.clinic.clinic_management.entity.Role;
 import com.clinic.clinic_management.entity.User;
 import com.clinic.clinic_management.repository.AuditLogRepository;
+import com.clinic.clinic_management.repository.PatientRepository;
 import com.clinic.clinic_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,9 @@ public class RecordAccessLogService {
     private UserRepository userRepository;
 
     @Autowired
+    private PatientRepository patientRepository;
+
+    @Autowired
     private AuthService authService;
 
     public List<MedicalRecordAccessLogResponse> getMedicalRecordAccessLogs() {
@@ -36,7 +41,7 @@ public class RecordAccessLogService {
         if (requesterId != null) {
             authService.validateAdminOrManager(requesterId);
         }
-        List<AuditLog> logs = auditLogRepository.findByEntityNameOrderByCreatedAtDesc("medical_records");
+        List<AuditLog> logs = auditLogRepository.findByEntityNameInOrderByCreatedAtDesc(List.of("medical_records", "patients"));
         List<MedicalRecordAccessLogResponse> responses = new ArrayList<>();
 
         for (AuditLog log : logs) {
@@ -44,27 +49,101 @@ public class RecordAccessLogService {
             res.setId(log.getId());
             res.setUserId(log.getUserId());
             res.setAction(log.getAction());
-            res.setRecordCode(log.getEntityId() != null ? log.getEntityId() : "HSBA-Chung");
-            res.setIpAddress(log.getIpAddress());
+            res.setIpAddress(log.getIpAddress() != null ? log.getIpAddress() : "127.0.0.1");
             res.setCreatedAt(log.getCreatedAt());
 
-            // Extract patientName and reason from newData json string if present
             String data = log.getNewData();
+            String patientName = null;
+            String reason = null;
+            String recordCode = null;
+
             if (data != null) {
                 if (data.contains("\"patientName\":\"")) {
                     int start = data.indexOf("\"patientName\":\"") + 15;
                     int end = data.indexOf("\"", start);
-                    if (end > start) res.setPatientName(data.substring(start, end));
+                    if (end > start) patientName = data.substring(start, end);
+                }
+                if (data.contains("\"fullName\":\"")) {
+                    int start = data.indexOf("\"fullName\":\"") + 12;
+                    int end = data.indexOf("\"", start);
+                    if (end > start) patientName = data.substring(start, end);
                 }
                 if (data.contains("\"reason\":\"")) {
                     int start = data.indexOf("\"reason\":\"") + 10;
                     int end = data.indexOf("\"", start);
-                    if (end > start) res.setReason(data.substring(start, end));
+                    if (end > start) reason = data.substring(start, end);
+                }
+                if (data.contains("\"patientCode\":\"")) {
+                    int start = data.indexOf("\"patientCode\":\"") + 15;
+                    int end = data.indexOf("\"", start);
+                    if (end > start) recordCode = data.substring(start, end);
+                } else if (data.contains("\"primaryCode\":\"")) {
+                    int start = data.indexOf("\"primaryCode\":\"") + 15;
+                    int end = data.indexOf("\"", start);
+                    if (end > start) recordCode = data.substring(start, end);
                 }
             }
 
-            if (res.getPatientName() == null) res.setPatientName("Hồ sơ bệnh án tổng quát");
-            if (res.getReason() == null) res.setReason("Tra cứu thông tin lâm sàng");
+            // Fallback tra cứu thông tin bệnh nhân nếu là entity 'patients'
+            if ("patients".equalsIgnoreCase(log.getEntityName()) && log.getEntityId() != null) {
+                try {
+                    Long pid = Long.parseLong(log.getEntityId());
+                    Optional<Patient> pOpt = patientRepository.findById(pid);
+                    if (pOpt.isPresent()) {
+                        Patient p = pOpt.get();
+                        if (patientName == null) patientName = p.getFullName();
+                        if (recordCode == null) recordCode = p.getPatientCode();
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+
+            if (recordCode == null) {
+                recordCode = log.getEntityId() != null ? log.getEntityId() : "HSBA-Chung";
+            }
+            res.setRecordCode(recordCode);
+
+            // Gán mô tả lý do thao tác rõ ràng theo từng hành vi
+            if (reason == null || reason.trim().isEmpty()) {
+                String act = log.getAction() != null ? log.getAction() : "";
+                switch (act) {
+                    case "VIEW_RECORD":
+                        reason = "Tra cứu xem lịch sử khám bệnh";
+                        break;
+                    case "CREATE_PATIENT":
+                        reason = "Đăng ký tiếp nhận hồ sơ bệnh nhân mới";
+                        break;
+                    case "UPDATE_PATIENT_INFO":
+                    case "SELF_UPDATE_PATIENT_INFO":
+                        reason = "Cập nhật thông tin hành chính bệnh nhân";
+                        break;
+                    case "UPDATE_MEDICAL_HISTORY":
+                        reason = "Cập nhật tiền sử bệnh lý và dị ứng thuốc";
+                        break;
+                    case "UPDATE_HEALTH_INSURANCE":
+                        reason = "Cập nhật thông tin thẻ bảo hiểm y tế (BHYT)";
+                        break;
+                    case "MERGE_PATIENTS":
+                        reason = "Gộp hồ sơ bệnh nhân trùng lặp";
+                        break;
+                    case "DEACTIVATE_PATIENT":
+                        reason = "Khóa / Vô hiệu hóa hồ sơ bệnh nhân";
+                        break;
+                    case "ACTIVATE_PATIENT":
+                        reason = "Mở khóa / Kích hoạt lại hồ sơ bệnh nhân";
+                        break;
+                    case "EDIT_RECORD":
+                        reason = "Chỉnh sửa thông tin hồ sơ bệnh án";
+                        break;
+                    case "PRINT_RECORD":
+                        reason = "In sao lưu / Trích xuất hồ sơ bệnh án";
+                        break;
+                    default:
+                        reason = "Thao tác trên hồ sơ bệnh nhân";
+                }
+            }
+
+            res.setPatientName(patientName != null ? patientName : "Hồ sơ bệnh nhân");
+            res.setReason(reason);
 
             if (log.getUserId() != null) {
                 Optional<User> uOpt = userRepository.findById(log.getUserId());

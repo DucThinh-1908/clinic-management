@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findByEntityNameOrderByCreatedAtDesc(String entityName);
+    List<AuditLog> findByEntityNameInOrderByCreatedAtDesc(List<String> entityNames);
     List<AuditLog> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<AuditLog> findByActionContainingOrderByCreatedAtDesc(String action);
     List<AuditLog> findAllByOrderByCreatedAtDesc();

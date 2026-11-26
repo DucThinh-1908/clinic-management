@@ -198,10 +198,12 @@ public class PatientController {
     public ResponseEntity<?> getMedicalRecords(
             @PathVariable Long id,
             @RequestParam(required = false) Long requesterId,
-            @RequestHeader(value = "X-Requester-Id", required = false) String requesterIdHeader) {
+            @RequestHeader(value = "X-Requester-Id", required = false) String requesterIdHeader,
+            HttpServletRequest servletRequest) {
         try {
             Long actorId = resolveRequesterId(requesterId, requesterIdHeader);
-            List<MedicalRecordSummaryDto> records = patientManagementService.getPatientMedicalRecords(id, actorId);
+            String ipAddress = servletRequest != null ? servletRequest.getRemoteAddr() : "127.0.0.1";
+            List<MedicalRecordSummaryDto> records = patientManagementService.getPatientMedicalRecords(id, actorId, ipAddress);
             return ResponseEntity.ok(records);
         } catch (SecurityException e) {
             return errorResponse(HttpStatus.FORBIDDEN, e.getMessage());

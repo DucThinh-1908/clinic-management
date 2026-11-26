@@ -108,7 +108,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           Từ chối quyền truy cập chức năng
         </h2>
         <p style={{ color: '#4b5563', fontSize: '14.5px', lineHeight: 1.6, marginBottom: '8px' }}>
-          Tài khoản hiện tại của bạn có vai trò <strong>{getRoleDisplayName(userRoles)}</strong> nhưng chưa được cấp quyền thực hiện chức năng này trên Keycloak.
+          Tài khoản hiện tại của bạn có vai trò <strong>{getRoleDisplayName(userRoles)}</strong> nhưng chưa được cấp quyền thực hiện chức năng này.
         </p>
         <p style={{ color: '#6b7280', fontSize: '13.5px', lineHeight: 1.6, marginBottom: '24px' }}>
           Hệ thống chỉ cho phép truy cập các chức năng đã được gán quyền hạn (Associated roles) tương ứng.

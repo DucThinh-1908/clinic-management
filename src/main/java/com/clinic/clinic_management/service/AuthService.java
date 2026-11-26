@@ -379,7 +379,7 @@ public class AuthService {
         if (keycloakPermissions != null) {
             summary.setPermissions(new HashSet<>(keycloakPermissions));
         }
-        return new LoginResponse(true, "Đồng bộ Keycloak thành công", null, summary);
+        return new LoginResponse(true, "Đồng bộ tài khoản thành công", null, summary);
     }
 
 }
